@@ -1,90 +1,67 @@
-# -------------------------------------------------------------------------
-# 1. GENERATED NODE.JS DEPENDENCIES & LOCK FILES (Crucial Exclusions)
-# -------------------------------------------------------------------------
-# Node.js module directories (can be huge and are regenerated via npm install)
+################################
+# 1. DEPENDENCY / TEMP FILES
+################################
+
+# Node.js dependencies: Huge and regenerated on install
 node_modules
 Backend/node_modules
 frontend/node_modules
 
-# Package lock files are often excluded if yarn/pnpm are used, but for npm
-# package-lock.json is usually kept to ensure deterministic builds. 
-# However, you may choose to exclude them if you want the project to always 
-# use the latest compatible versions based on package.json:
-# package-lock.json
-# frontend/package-lock.json
+# Package lock files (recommended to ignore locally, but often tracked for consistency. Ignoring here based on "temp file" request)
+package-lock.json
+Backend/package-lock.json
+frontend/package-lock.json
 
-# Build and temporary directories for frontends
-/frontend/build
-/frontend/dist
+# Build output directories
+# (While not currently present, this is standard for create-react-app)
+build
+dist
+out
 
-
-# -------------------------------------------------------------------------
-# 2. LARGE MACHINE LEARNING ASSETS (Your Major Concern)
-# -------------------------------------------------------------------------
-
-# Large binary model files. These are the main culprits for the 6.6GB Backend size.
-# Files ending in .safetensors (modern weight format)
-*.safetensors
-Backend/**/*.safetensors
-
-# Pickled Python objects/models (QA and Session)
-Backend/QA_Model_cpu.pkl
-Backend/ses.pkl
-
-# Checkpoints from model training (2.5GB)
-Backend/checkpoints/
-
-# If the full model directories contain ONLY weights, ignore the entire folders.
-# Based on the size, these folders are >99% weights and should be excluded.
-Backend/Conversation_MODEL/
-Backend/MEME_MODEL/
-Backend/patientRequestSummarization/model.safetensors # Safest to ignore the file inside
-
-
-# -------------------------------------------------------------------------
-# 3. PYTHON SPECIFIC FILES (Temp/Cache)
-# -------------------------------------------------------------------------
-# Python compiled bytecode cache
+# Python compiled files
 __pycache__/
-Backend/__pycache__/
 *.pyc
 
-# Virtual Environment directories (if you use one outside the project root)
-# venv
-# .venv
-# env
-
-
-# -------------------------------------------------------------------------
-# 4. OS AND EDITOR TEMP/CONFIG FILES
-# -------------------------------------------------------------------------
-# Operating System temporary files
+# Operating System specific files
 .DS_Store
-Thumbs.db
+.vscode/ # VS Code workspace files
+.history/ # VS Code local history (if enabled)
 
-# AwesomeWM/Fish/Terminal History
-.history
-
-# Common Editor files
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
-
-# -------------------------------------------------------------------------
-# 5. Runtime and Local Files
-# -------------------------------------------------------------------------
-# Environment variables (ALWAYS exclude these for security)
-.env
-.env.local
-.env.*.local
-
-# Database files (if you use a local file-based DB, e.g., SQLite)
-*.sqlite
-*.db
-
-# Node/React debug/log files
+# IDE / Editor Files
+*.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.npm
+
+################################
+# 2. MACHINE LEARNING / WEIGHTS / LARGE FILES
+################################
+
+# LARGE MODEL WEIGHTS: These are the files you specifically want to exclude due to size.
+# They should be managed via Git LFS if you absolutely need to track them, 
+# but ignoring them is the safest approach for pure git.
+
+# Checkpoints/Trained States (e.g., 2.5G)
+Backend/checkpoints/
+
+# Safetensors files (e.g., 1.6G, 1.6G, 419M)
+**/*.safetensors
+
+# Pickled models/sessions (e.g., QA_Model_cpu.pkl, ses.pkl)
+*.pkl
+
+# Generic weights/model files
+*.pth
+*.bin
+
+# Other potential model file types if you add them later
+*.h5
+*.onnx
+
+################################
+# 3. BACKEND SPECIFIC
+################################
+
+# If your 'uploads' directory is for user-uploaded files (which it likely is)
+Backend/uploads/
+
+# Temporary MongoDB socket file
+/tmp/mongodb-27017.sock
