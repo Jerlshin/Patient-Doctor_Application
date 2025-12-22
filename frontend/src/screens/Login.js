@@ -19,7 +19,7 @@ function Login() {
 
 
     const signup = (event) => {
-        event.prevantDefault();
+        event.preventDefault();
 
         const config = {
             headers: {
