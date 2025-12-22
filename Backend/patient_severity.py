@@ -10,30 +10,38 @@ import speech_recognition as sr
 from transformers import BertForSequenceClassification, BertTokenizerFast
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all origins (adjust for specific origins if needed)
-app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'  # Secret key for session management
+CORS(app) 
+app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
+
+# --- PATH CONFIGURATION ---
+# This gets the absolute path to the folder where patient_severity.py is located
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def get_path(folder_name):
+    return os.path.join(BASE_DIR, folder_name)
+# ---------------------------
 
 tokenizer = AutoTokenizer.from_pretrained("distilbert-base-cased-distilled-squad")
-with open('QA_Model_cpu.pkl','rb') as f:
+
+# Use absolute path for the pickle file
+with open(get_path('QA_Model_cpu.pkl'), 'rb') as f:
     model = pickle.load(f)
 
-
-model_path = r"D:\Visual Studio Code\Web Development\Hackathon\Backend\patientRequestSummarization"
 # FINE TUNED MODEL
+model_path = get_path("patientRequestSummarization")
 finetuned_model = BertForSequenceClassification.from_pretrained(model_path)
-finetuned_tokenizer= BertTokenizerFast.from_pretrained(model_path)
+finetuned_tokenizer = BertTokenizerFast.from_pretrained(model_path)
 
 r = sr.Recognizer()
 
-pat_doc_model = AutoModelForSeq2SeqLM.from_pretrained(r"D:\Visual Studio Code\Web Development\Hackathon\Backend\Conversation_MODEL")
-pat_doc_tokenizer = AutoTokenizer.from_pretrained(r"D:\Visual Studio Code\Web Development\Hackathon\Backend\Conversation_TOK")
+# Conversation Models
+pat_doc_model = AutoModelForSeq2SeqLM.from_pretrained(get_path("Conversation_MODEL"))
+pat_doc_tokenizer = AutoTokenizer.from_pretrained(get_path("Conversation_TOK"))
 
-tokenizer2 = AutoTokenizer.from_pretrained(r"D:\Visual Studio Code\Web Development\Hackathon\Backend\MEME_TOKENIZER")  
-model2 = AutoModelForSeq2SeqLM.from_pretrained(r"D:\Visual Studio Code\Web Development\Hackathon\Backend\MEME_MODEL")
-#model=pickle.load(open('Doc_Summarization','rb'))
-summarizer = pipeline("summarization", tokenizer=tokenizer2, model=model2)
-
-
+# Meme Summarization Models
+tokenizer2 = AutoTokenizer.from_pretrained(get_path("MEME_TOKENIZER"))  
+model2 = AutoModelForSeq2SeqLM.from_pretrained(get_path("MEME_MODEL"))
+summarizer = pipeline("summarization", tokenizer=tokenizer2, model=model2, device=-1)
 #Patient-Doctor Chat Summrixation
 def preprocess_conversation(conversation):
     inputs = pat_doc_tokenizer(conversation, return_tensors="pt") 
@@ -60,6 +68,7 @@ def recognize_speech(source):
 
 # Function to predict severity
 def predict(text):
+    # Ensure truncation is active to prevent long messages from crashing BERT
     inputs = finetuned_tokenizer(text, padding=True, truncation=True, max_length=512, return_tensors="pt")
     outputs = finetuned_model(**inputs)
     
@@ -68,7 +77,6 @@ def predict(text):
     
     pred_label = finetuned_model.config.id2label[pred_label_idx.item()]
     return jsonify({'response': pred_label})
-
             
 def extract_text_from_pdf(pdf_path):
     try:
@@ -102,10 +110,25 @@ def pdf_qna(text, question):
         
     
 #Document Summrization
+# Document Summarization
 def doc_sum(text):
-    result = summarizer(text, max_length=100, min_length=40, do_sample=False)[0]['summary_text']
-    return jsonify({'response': result, 'pdfData':text})
-
+    try:
+        # Manually slice the first 3000 characters (approx 750-1000 tokens)
+        # to ensure it fits within the 1024 token limit.
+        truncated_text = text[:3000] 
+        
+        # Pass the truncated text to the summarizer
+        result = summarizer(
+            truncated_text, 
+            max_length=100, 
+            min_length=40, 
+            do_sample=False, 
+            truncation=True  # Extra safety
+        )[0]['summary_text']
+        
+        return jsonify({'response': result, 'pdfData': text})
+    except Exception as e:
+        return jsonify({'error': f"Summarization failed: {str(e)}"}), 500
 
 
 
@@ -115,12 +138,11 @@ def get_query():
         data = request.get_json()
         user_input = data.get('message', '')
 
-        file_path = os.path.join("D:/", "uploaded_file.pdf")
+        # Fix: Save PDF to the current project folder instead of D:/
+        file_path = get_path("uploaded_file.pdf")
         pdf_text = extract_text_from_pdf(file_path)
 
         return pdf_qna(pdf_text, user_input)
-
-        #return jsonify({'response': "Response from python"})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -131,11 +153,11 @@ def upload_pdf():
             return jsonify({'error': 'No file part in the request'}), 400
 
         file = request.files['file']
-
         if file.filename == '':
             return jsonify({'error': 'No selected file'}), 400
 
-        file_path = os.path.join("D:/", "uploaded_file.pdf")
+        # Fix: Save PDF to the current project folder instead of D:/
+        file_path = get_path("uploaded_file.pdf")
         file.save(file_path)
 
         pdf_text = extract_text_from_pdf(file_path)
@@ -143,7 +165,6 @@ def upload_pdf():
     except Exception as e:
         app.logger.error(f"Error uploading PDF: {str(e)}")
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
-
 
 @app.route('/patient_querry', methods=['POST'])
 def patient_querry():
