@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, User, FileText, Sparkles, CheckCircle, XCircle, LogOut, Inbox, History, Activity } from 'lucide-react';
-import { API_BASE_URL } from "../../config/constant";
-
 import { toast } from 'react-hot-toast';
+import { API_BASE_URL } from "../../config/constant";
+import { Button, Card } from '../../components/ui';
 
 export default function DoctorDashboard() {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || '{}'));
@@ -63,118 +63,150 @@ export default function DoctorDashboard() {
     const upcomingApts = appointments.filter(apt => apt.status === 'Confirmed');
     const historyApts = appointments.filter(apt => ['Cancelled', 'Completed'].includes(apt.status));
 
-    return (
-        <div className="min-h-screen bg-indigo-50 p-6">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-8 max-w-7xl mx-auto">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Dr. {user.name} 👨‍⚕️</h1>
-                    <p className="text-indigo-600 font-medium">Manage your patients and schedule</p>
-                </div>
-                <button onClick={handleLogout} className="flex items-center gap-2 text-red-600 font-medium hover:bg-red-50 px-4 py-2 rounded-lg transition">
-                    <LogOut size={18} /> Logout
-                </button>
-            </div>
+    const tabs = [
+        { id: 'requests', label: 'Requests', icon: <Inbox size={18} />, count: pendingApts.length },
+        { id: 'schedule', label: 'Schedule', icon: <Calendar size={18} />, count: upcomingApts.length },
+        { id: 'history', label: 'History', icon: <History size={18} /> },
+    ];
 
-            <div className="max-w-7xl mx-auto">
+    return (
+        <div className="min-h-screen bg-indigo-50/50">
+            {/* Header */}
+            <header className="bg-white border-b border-indigo-100 sticky top-0 z-30">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-lg">
+                            Dr
+                        </div>
+                        <div>
+                            <h1 className="text-lg font-bold text-gray-900">Dr. {user.name}</h1>
+                            <p className="text-xs text-indigo-600 font-medium">Doctor Dashboard</p>
+                        </div>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                        onClick={handleLogout}
+                        leftIcon={<LogOut size={18} />}
+                    >
+                        Logout
+                    </Button>
+                </div>
+            </header>
+
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
                 {/* Tabs */}
-                <div className="flex gap-4 mb-8 border-b border-gray-200 pb-1">
-                    <button
-                        onClick={() => setActiveTab('requests')}
-                        className={`pb-3 px-4 font-medium transition-all flex items-center gap-2 ${activeTab === 'requests' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        <Inbox size={18} /> Requests
-                        {pendingApts.length > 0 && <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-xs animate-pulse">{pendingApts.length}</span>}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('schedule')}
-                        className={`pb-3 px-4 font-medium transition-all flex items-center gap-2 ${activeTab === 'schedule' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        <Calendar size={18} /> Schedule
-                        {upcomingApts.length > 0 && <span className="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-xs">{upcomingApts.length}</span>}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('history')}
-                        className={`pb-3 px-4 font-medium transition-all flex items-center gap-2 ${activeTab === 'history' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        <History size={18} /> History
-                    </button>
+                <div className="flex space-x-1 bg-white p-1 rounded-xl shadow-sm border border-indigo-100 mb-8 w-full md:w-fit">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`
+                                flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                                ${activeTab === tab.id
+                                    ? 'bg-indigo-600 text-white shadow-md'
+                                    : 'text-gray-500 hover:text-gray-900 hover:bg-indigo-50'
+                                }
+                            `}
+                        >
+                            {tab.icon}
+                            {tab.label}
+                            {tab.count > 0 && (
+                                <span className={`ml-1 px-2 py-0.5 rounded-full text-xs animate-pulse ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-red-100 text-red-600'
+                                    }`}>
+                                    {tab.count}
+                                </span>
+                            )}
+                        </button>
+                    ))}
                 </div>
 
                 {/* Content */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-
-                    {activeTab === 'requests' && (
-                        <div className="divide-y divide-gray-100">
-                            {pendingApts.length === 0 ? (
-                                <div className="p-12 text-center text-gray-400">
-                                    <Inbox size={48} className="mx-auto mb-4 opacity-50" />
-                                    No pending requests
-                                </div>
-                            ) : pendingApts.map(apt => (
-                                <div key={apt._id} className="p-6 hover:bg-gray-50 transition flex flex-col lg:flex-row gap-6">
+                {activeTab === 'requests' && (
+                    <div className="space-y-4 animate-slide-up">
+                        {pendingApts.length === 0 ? (
+                            <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-indigo-50">
+                                <Inbox size={48} className="mx-auto text-gray-300 mb-4" />
+                                <p className="text-gray-500">No pending appointment requests</p>
+                            </div>
+                        ) : pendingApts.map(apt => (
+                            <Card key={apt._id} className="border-l-4 border-l-orange-400">
+                                <div className="p-6 flex flex-col lg:flex-row gap-6">
                                     {/* Patient Info Card */}
                                     <div className="flex-1">
                                         <div className="flex justify-between items-start">
-                                            <div>
-                                                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                                                    {apt.patientId?.name}
-                                                    <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                                                        {apt.patientId?.age} yrs, {apt.patientId?.gender}
-                                                    </span>
-                                                </h3>
-                                                <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                                                    <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(apt.date).toLocaleDateString()}</span>
-                                                    <span className="flex items-center gap-1"><Clock size={14} /> {apt.time}</span>
-                                                    <span className="flex items-center gap-1 text-red-500 font-medium">Blood Group: {apt.patientId?.bloodGroup || 'N/A'}</span>
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center font-bold text-lg">
+                                                    {apt.patientId?.name?.[0]}
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                                        {apt.patientId?.name}
+                                                        <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200">
+                                                            {apt.patientId?.age || 'N/A'} yrs, {apt.patientId?.gender || 'N/A'}
+                                                        </span>
+                                                    </h3>
+                                                    <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                                                        <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(apt.date).toLocaleDateString()}</span>
+                                                        <span className="flex items-center gap-1"><Clock size={14} /> {apt.time}</span>
+                                                        <span className="flex items-center gap-1 text-red-500 font-medium bg-red-50 px-2 rounded-md">Blood: {apt.patientId?.bloodGroup || 'N/A'}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="mt-4 bg-orange-50 p-4 rounded-xl border border-orange-100">
-                                            <p className="text-xs font-bold text-orange-700 mb-1">MEDICAL HISTORY</p>
-                                            <p className="text-sm text-gray-700">{apt.patientId?.medicalHistory || "None provided"}</p>
-                                        </div>
+                                        <div className="mt-4 grid md:grid-cols-2 gap-4">
+                                            <div className="bg-orange-50/50 p-4 rounded-xl border border-orange-100">
+                                                <p className="text-xs font-bold text-orange-700 mb-1 uppercase tracking-wider">Medical History</p>
+                                                <p className="text-sm text-gray-700">{apt.patientId?.medicalHistory || "None provided"}</p>
+                                            </div>
 
-                                        <div className="mt-3 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                            <p className="text-xs font-bold text-gray-500 mb-1">SYMPTOMS REPORTED</p>
-                                            <p className="text-sm text-gray-800">{apt.symptoms}</p>
+                                            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                                <p className="text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Symptoms Reported</p>
+                                                <p className="text-sm text-gray-800">{apt.symptoms}</p>
+                                            </div>
                                         </div>
                                     </div>
 
                                     {/* Actions */}
-                                    <div className="flex flex-col justify-center gap-3 lg:w-48 border-l pl-0 lg:pl-6 border-transparent lg:border-gray-100">
-                                        <button
+                                    <div className="flex flex-col justify-center gap-3 lg:w-48 border-l-0 lg:border-l lg:pl-6 border-gray-100">
+                                        <Button
                                             onClick={() => handleStatusUpdate(apt._id, 'Confirmed')}
-                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition shadow-sm shadow-indigo-200"
+                                            className="w-full bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200 shadow-md"
+                                            leftIcon={<CheckCircle size={18} />}
                                         >
-                                            <CheckCircle size={18} /> Accept
-                                        </button>
-                                        <button
+                                            Accept
+                                        </Button>
+                                        <Button
+                                            variant="outline"
                                             onClick={() => handleStatusUpdate(apt._id, 'Cancelled')}
-                                            className="bg-white border border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 px-4 py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition"
+                                            className="w-full hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                                            leftIcon={<XCircle size={18} />}
                                         >
-                                            <XCircle size={18} /> Reject
-                                        </button>
+                                            Reject
+                                        </Button>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                            </Card>
+                        ))}
+                    </div>
+                )}
 
-                    {activeTab === 'schedule' && (
-                        <div className="divide-y divide-gray-100">
-                            {upcomingApts.length === 0 ? (
-                                <div className="p-12 text-center text-gray-400">
-                                    <Calendar size={48} className="mx-auto mb-4 opacity-50" />
-                                    No confirmed appointments
-                                </div>
-                            ) : upcomingApts.map(apt => (
-                                <div key={apt._id} className="p-6 hover:bg-gray-50 transition flex flex-col gap-6">
-                                    <div className="flex items-center justify-between">
+                {activeTab === 'schedule' && (
+                    <div className="space-y-4 animate-slide-up">
+                        {upcomingApts.length === 0 ? (
+                            <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-indigo-50">
+                                <Calendar size={48} className="mx-auto text-gray-300 mb-4" />
+                                <p className="text-gray-500">No confirmed appointments scheduled.</p>
+                            </div>
+                        ) : upcomingApts.map(apt => (
+                            <Card key={apt._id} className="overflow-visible">
+                                <div className="p-6">
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex flex-col items-center justify-center font-bold">
-                                                <span className="text-xs uppercase">{new Date(apt.date).toLocaleDateString(undefined, { month: 'short' })}</span>
+                                            <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex flex-col items-center justify-center font-bold border border-indigo-100">
+                                                <span className="text-xs uppercase tracking-wide">{new Date(apt.date).toLocaleDateString(undefined, { month: 'short' })}</span>
                                                 <span className="text-2xl">{new Date(apt.date).getDate()}</span>
                                             </div>
                                             <div>
@@ -184,65 +216,80 @@ export default function DoctorDashboard() {
                                                 </p>
                                             </div>
                                         </div>
-                                        <button
+                                        <Button
+                                            variant="outline"
                                             onClick={() => handleStatusUpdate(apt._id, 'Completed')}
-                                            className="border border-green-200 text-green-700 hover:bg-green-50 px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2"
+                                            className="border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300"
+                                            leftIcon={<CheckCircle size={16} />}
                                         >
-                                            <CheckCircle size={16} /> Mark Completed
-                                        </button>
+                                            Mark Completed
+                                        </Button>
                                     </div>
 
                                     {/* AI Summary Section */}
-                                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <h4 className="font-bold text-gray-700 text-sm">Clinical Insights</h4>
+                                    <div className="bg-gray-50 p-5 rounded-xl border border-gray-100 relative overflow-hidden group">
+                                        <div className="flex justify-between items-center mb-3 relative z-10">
+                                            <h4 className="font-bold text-gray-700 text-sm flex items-center gap-2">
+                                                <Sparkles size={14} className="text-indigo-500" /> Clinical Insights
+                                            </h4>
                                             {!apt.aiSummary && (
-                                                <button
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
                                                     onClick={() => generateSummary(apt._id)}
+                                                    loading={loadingAi === apt._id}
                                                     disabled={loadingAi === apt._id}
-                                                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 disabled:opacity-50"
+                                                    className="text-indigo-600 hover:bg-indigo-50 text-xs h-8"
                                                 >
-                                                    <Sparkles size={14} />
-                                                    {loadingAi === apt._id ? 'Analyzing...' : 'Generate AI Summary'}
-                                                </button>
+                                                    Generate AI Summary
+                                                </Button>
                                             )}
                                         </div>
                                         {apt.aiSummary ? (
-                                            <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100">
+                                            <div className="bg-white p-4 rounded-lg border border-indigo-100 shadow-sm relative z-10">
                                                 <p className="text-indigo-900 text-sm leading-relaxed">{apt.aiSummary}</p>
                                             </div>
                                         ) : (
-                                            <p className="text-gray-500 text-sm italic">Patient symptoms: {apt.symptoms}</p>
+                                            <div className="bg-white p-3 rounded-lg border border-gray-200">
+                                                <p className="text-gray-500 text-sm italic"><span className="font-medium text-gray-700 not-italic">Patient symptoms:</span> {apt.symptoms}</p>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                            </Card>
+                        ))}
+                    </div>
+                )}
 
-                    {activeTab === 'history' && (
-                        <div className="divide-y divide-gray-100">
-                            {historyApts.length === 0 ? (
-                                <div className="p-12 text-center text-gray-400">
-                                    <History size={48} className="mx-auto mb-4 opacity-50" />
-                                    No appointment history
-                                </div>
-                            ) : historyApts.map(apt => (
-                                <div key={apt._id} className="p-6 opacity-75 flex items-center justify-between">
+                {activeTab === 'history' && (
+                    <div className="space-y-4 animate-slide-up">
+                        {historyApts.length === 0 ? (
+                            <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-indigo-50">
+                                <History size={48} className="mx-auto text-gray-300 mb-4" />
+                                <p className="text-gray-500">No appointment history</p>
+                            </div>
+                        ) : historyApts.map(apt => (
+                            <div key={apt._id} className="bg-white p-5 rounded-xl border border-gray-100 flex items-center justify-between opacity-75 hover:opacity-100 transition-all">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-gray-100 text-gray-500 rounded-lg flex items-center justify-center">
+                                        <User size={20} />
+                                    </div>
                                     <div>
                                         <h3 className="font-bold text-gray-800">{apt.patientId?.name}</h3>
-                                        <p className="text-sm text-gray-500">{new Date(apt.date).toLocaleDateString()} at {apt.time}</p>
+                                        <p className="text-sm text-gray-500 flex items-center gap-1">
+                                            <Calendar size={12} /> {new Date(apt.date).toLocaleDateString()} at {apt.time}
+                                        </p>
                                     </div>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${apt.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                        }`}>
-                                        {apt.status}
-                                    </span>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${apt.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                    }`}>
+                                    {apt.status}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </main>
         </div>
     );
 }
