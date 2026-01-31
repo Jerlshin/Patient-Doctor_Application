@@ -1,67 +1,81 @@
 ################################
-# 1. DEPENDENCY / TEMP FILES
+# 1. ENVIRONMENT & SENSITIVE DATA
 ################################
+# Never push secrets, API keys, or environment-specific configs
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.production
 
-# Node.js dependencies: Huge and regenerated on install
-node_modules
-Backend/node_modules
-frontend/node_modules
-
-# Package lock files (recommended to ignore locally, but often tracked for consistency. Ignoring here based on "temp file" request)
+################################
+# 2. DEPENDENCY / TEMP FILES
+################################
+# Node.js: Catch node_modules at any depth
+**/node_modules/
 package-lock.json
-Backend/package-lock.json
-frontend/package-lock.json
+# (Optional: keep package-lock if you want consistent builds across teams)
 
-# Build output directories
-# (While not currently present, this is standard for create-react-app)
-build
-dist
-out
-
-# Python compiled files
-__pycache__/
+# Python: Virtual environments and caches
+venv/
+.venv/
+env/
+bin/
+lib/
+**/__pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ipynb_checkpoints/
 
-# Operating System specific files
+# Operating System / IDE
 .DS_Store
-.vscode/ # VS Code workspace files
-.history/ # VS Code local history (if enabled)
-
-# IDE / Editor Files
+Thumbs.db
+.vscode/
+.idea/
+*.swp
 *.log
-npm-debug.log*
+.history/
 
 ################################
-# 2. MACHINE LEARNING / WEIGHTS / LARGE FILES
+# 3. BUILD & DISTRIBUTION
 ################################
+# Frontend/Backend build artifacts
+dist/
+build/
+out/
+.next/
+bin/
+obj/
 
-# LARGE MODEL WEIGHTS: These are the files you specifically want to exclude due to size.
-# They should be managed via Git LFS if you absolutely need to track them, 
-# but ignoring them is the safest approach for pure git.
-
-# Checkpoints/Trained States (e.g., 2.5G)
-Backend/checkpoints/
-
-# Safetensors files (e.g., 1.6G, 1.6G, 419M)
+################################
+# 4. AI / MACHINE LEARNING (LARGE FILES)
+################################
+# Explicitly blocking the heavy weights you have in apps/ai-engine/
+# Using wildcards to catch models regardless of folder depth
 **/*.safetensors
+**/*.pkl
+**/*.pth
+**/*.bin
+**/*.onnx
+**/*.h5
+**/*.model
+**/*.ckpt
 
-# Pickled models/sessions (e.g., QA_Model_cpu.pkl, ses.pkl)
-*.pkl
-
-# Generic weights/model files
-*.pth
-*.bin
-
-# Other potential model file types if you add them later
-*.h5
-*.onnx
+# Specific directory for checkpoints
+**/checkpoints/
+**/models_cache/
 
 ################################
-# 3. BACKEND SPECIFIC
+# 5. PROJECT SPECIFIC (FULLSTACK)
 ################################
-
-# If your 'uploads' directory is for user-uploaded files (which it likely is)
-Backend/uploads/
-
-# Temporary MongoDB socket file
+# Database / Local storage
+**/uploads/
+**/temp/
+*.db
+*.sqlite
 /tmp/mongodb-27017.sock
+
+# Documentation/Artifacts
+*.pdf

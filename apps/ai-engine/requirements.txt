@@ -1,0 +1,8 @@
+flask
+flask-cors
+pypdf2
+transformers
+torch
+SpeechRecognition
+python-dotenv
+numpy
