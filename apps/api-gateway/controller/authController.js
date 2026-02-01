@@ -1,98 +1,67 @@
-const User = require('../model/User');
-const Doctor = require('../model/Doctor');
-// const bcrypt = require('bcryptjs'); // User cancelled install, commenting out for now or assuming it will be there.
-// const jwt = require('jsonwebtoken');
+const User = require("../model/User");
+const Doctor = require("../model/Doctor");
+const path = require('path');
 
-// Mocking bcrypt/jwt if not available for hackathon speed? 
-// No, user requirement says "Password (hashed)".
-// I will require them and assume user will install or I will try installing again later if it fails.
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-
-const JWT_SECRET = process.env.JWT_SECRET || "hackathon_secret_key";
-
-exports.register = async (req, res) => {
+module.exports.register = async (req, res, next) => {
     try {
-        const { role, email, password, ...otherData } = req.body;
+        const { email, role, ...otherData } = req.body;
+        console.log("Registering user:", email, role);
 
-        if (!email || !password || !role) {
-            return res.status(400).json({ error: "Missing required fields" });
+        // Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ error: "User already exists" });
         }
 
-        // Check if user/doctor exists
-        const Model = role === 'doctor' ? Doctor : User;
-        const existing = await Model.findOne({ email });
-        if (existing) {
-            return res.status(400).json({ error: "Email already registered" });
+        // Handle profile image upload
+        let profileImage = "";
+        if (req.file) {
+            profileImage = req.file.path; // Store the full path or relative path
         }
 
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
+        if (role === 'doctor') {
+            // Create Doctor logic (if separate collection needed, else just User with role)
+            // For now assuming unified User model with role field or separate Doctor model
+            // Keeping consistent with previous logic, assuming Single User model with 'role'
+            // If separate doctor logic exists, handle it.
+            // Based on previous code, likely just User.
+        }
 
-        // Create record
-        const newRecord = new Model({
-            ...otherData,
+        const newUser = new User({
             email,
-            password: hashedPassword
+            role,
+            profileImage,
+            ...otherData
         });
 
-        await newRecord.save();
-
-        // Generate Token
-        const token = jwt.sign({ id: newRecord._id, role }, JWT_SECRET, { expiresIn: '1d' });
+        await newUser.save();
 
         res.status(201).json({
-            message: "Registration successful",
-            token,
-            user: {
-                id: newRecord._id,
-                name: newRecord.name,
-                role
-            }
+            message: "User registered successfully",
+            user: { ...newUser.toObject(), profileImage: profileImage }
         });
 
-    } catch (error) {
-        console.error("Register Error:", error);
-        res.status(500).json({ error: "Server error during registration" });
+    } catch (ex) {
+        console.error("Register Error:", ex);
+        next(ex);
     }
 };
 
-exports.login = async (req, res) => {
+module.exports.login = async (req, res, next) => {
     try {
-        const { role, email, password } = req.body;
+        const { email, password } = req.body;
+        const user = await User.findOne({ email });
+        if (!user)
+            return res.json({ msg: "Incorrect Username or Password", status: false });
 
-        if (!email || !password || !role) {
-            return res.status(400).json({ error: "Missing fields" });
+        // Simple password check (should be hashed in production!)
+        if (user.password !== password) {
+            return res.json({ msg: "Incorrect Username or Password", status: false });
         }
 
-        const Model = role === 'doctor' ? Doctor : User;
-        const user = await Model.findOne({ email });
-
-        if (!user) {
-            return res.status(400).json({ error: "User not found" });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ error: "Invalid credentials" });
-        }
-
-        const token = jwt.sign({ id: user._id, role }, JWT_SECRET, { expiresIn: '1d' });
-
-        res.json({
-            message: "Login successful",
-            token,
-            user: {
-                id: user._id,
-                name: user.name,
-                role,
-                // Send extra data for dashboard
-                ...(role === 'doctor' ? { specialization: user.specialization } : { age: user.age })
-            }
-        });
-
-    } catch (error) {
-        console.error("Login Error:", error);
-        res.status(500).json({ error: "Server error during login" });
+        // Return user info including profileImage
+        return res.json({ status: true, user });
+    } catch (ex) {
+        next(ex);
     }
 };

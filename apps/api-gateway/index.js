@@ -45,6 +45,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
 app.use("/doctors", studentRoute);
+app.use("/uploads", express.static("uploads"));
 
 const server = http.createServer(app);
 const io = new Server(server, {

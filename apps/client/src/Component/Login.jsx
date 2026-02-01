@@ -29,9 +29,7 @@ export default function Login() {
         setIsLoading(true);
 
         try {
-            const endpoint = role === 'doctor'
-                ? `${API_BASE_URL}/doctors/login`
-                : `${API_BASE_URL}/users/login`;
+            const endpoint = `${API_BASE_URL}/doctors/login`;
 
             const response = await axios.post(endpoint, formData);
 

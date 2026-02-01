@@ -12,6 +12,7 @@ const fs = require("fs");
 const FormData = require("form-data");
 const authController = require("./authController");
 const appointmentController = require("./appointmentController");
+const documentController = require("./documentController");
 
 // Python AI Engine URL
 const AI_ENGINE_URL = process.env.AI_ENGINE_URL || "http://localhost:5000";
@@ -35,7 +36,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // --- Auth Routes ---
-studentRoute.post("/register", authController.register);
+studentRoute.post("/register", documentController.profileImageMiddleware, authController.register);
 studentRoute.post("/login", authController.login);
 
 // --- Appointment Routes ---

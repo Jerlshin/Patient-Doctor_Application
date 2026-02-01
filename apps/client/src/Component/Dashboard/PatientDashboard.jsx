@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, User, Clock, MapPin, Search, PlusCircle, LogOut, FileText, History, Stethoscope, Briefcase, Filter, X } from 'lucide-react';
+import { Calendar, User, Clock, MapPin, Search, PlusCircle, LogOut, FileText, History, Stethoscope, Briefcase, Filter, X, ArrowRight } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { API_BASE_URL } from "../../config/constant";
 import BookingModal from '../Appointment/BookingModal';
@@ -14,13 +14,24 @@ export default function PatientDashboard() {
     const [searchTerm, setSearchTerm] = useState("");
     const [filterExp, setFilterExp] = useState("");
     const [selectedDoctor, setSelectedDoctor] = useState(null);
-    const [activeTab, setActiveTab] = useState('find'); // 'find', 'upcoming', 'history'
+    const [documents, setDocuments] = useState([]);
+    const [activeTab, setActiveTab] = useState('find'); // 'find', 'upcoming', 'history', 'documents'
     const navigate = useNavigate();
 
     useEffect(() => {
         fetchAppointments();
         fetchDoctors();
+        fetchDocuments();
     }, []);
+
+    const fetchDocuments = async () => {
+        try {
+            const res = await axios.get(`${API_BASE_URL}/doctors/documents/${user.id}`);
+            setDocuments(res.data);
+        } catch (err) {
+            console.error("Failed to fetch documents", err);
+        }
+    };
 
     const fetchAppointments = async () => {
         try {
@@ -65,6 +76,7 @@ export default function PatientDashboard() {
         { id: 'find', label: 'Find Doctor', icon: <Search size={18} /> },
         { id: 'upcoming', label: 'Upcoming', icon: <Calendar size={18} />, count: upcomingAppointments.length },
         { id: 'history', label: 'History', icon: <History size={18} /> },
+        { id: 'documents', label: 'My Documents', icon: <FileText size={18} /> },
     ];
 
     return (
@@ -309,21 +321,56 @@ export default function PatientDashboard() {
                         )}
                     </div>
                 )}
-            </main>
+
+                {activeTab === 'documents' && (
+                    <div className="space-y-4 animate-slide-up">
+                        {documents.length === 0 ? (
+                            <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100">
+                                <FileText className="mx-auto text-gray-300 mb-4" size={48} />
+                                <p className="text-gray-500">No documents uploaded</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                {documents.map(doc => (
+                                    <div key={doc._id} className="bg-white p-4 rounded-xl border border-gray-100 hover:shadow-md transition group relative">
+                                        <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-3">
+                                            <FileText size={24} />
+                                        </div>
+                                        <h3 className="font-bold text-gray-800 text-sm truncate" title={doc.originalName}>{doc.originalName}</h3>
+                                        <p className="text-xs text-gray-400 mt-1">{new Date(doc.createdAt).toLocaleDateString()}</p>
+                                        <div className="mt-4">
+                                            <a
+                                                href={`${API_BASE_URL}/${doc.path.replace(/\\/g, '/')}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                            >
+                                                View Document <ArrowRight size={12} />
+                                            </a>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </main >
 
             {/* Booking Modal */}
-            {selectedDoctor && (
-                <BookingModal
-                    doctor={selectedDoctor}
-                    patient={user}
-                    onClose={() => setSelectedDoctor(null)}
-                    onSuccess={() => {
-                        fetchAppointments();
-                        setSelectedDoctor(null);
-                        setActiveTab('upcoming');
-                    }}
-                />
-            )}
-        </div>
+            {
+                selectedDoctor && (
+                    <BookingModal
+                        doctor={selectedDoctor}
+                        patient={user}
+                        onClose={() => setSelectedDoctor(null)}
+                        onSuccess={() => {
+                            fetchAppointments();
+                            setSelectedDoctor(null);
+                            setActiveTab('upcoming');
+                        }}
+                    />
+                )
+            }
+        </div >
     );
 }
