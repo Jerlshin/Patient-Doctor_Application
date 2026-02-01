@@ -1,6 +1,6 @@
 import io from "socket.io-client";
 import { useState } from "react";
-import Chat from "./Chat";
+import Chat from "../../components/Chat/Chat";
 import { API_BASE_URL } from "../../config/constant";
 
 const socket = io.connect(API_BASE_URL);

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Calendar, User, Clock, MapPin, Search, PlusCircle, LogOut, FileText, History, Stethoscope, Briefcase, Filter, X, ArrowRight } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { API_BASE_URL } from "../../config/constant";
-import BookingModal from '../Appointment/BookingModal';
+import BookingModal from '../../components/Appointment/BookingModal';
 import { Button, Input, Card } from '../../components/ui';
 
 export default function PatientDashboard() {

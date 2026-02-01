@@ -1,6 +1,6 @@
 import Axios from "axios";
 import { useEffect, useState } from "react";
-import { ListDoctors } from "./ListDoctors";
+import { ListDoctors } from "../components/ListDoctors";
 import { API_BASE_URL } from "../config/constant";
 import { Search } from "lucide-react";
 

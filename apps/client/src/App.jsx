@@ -2,22 +2,22 @@ import React from 'react';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-import { Nav } from "./Component/Nav";
-import { Home } from './Component/Home';
-import { BMI } from './Component/BMI';
-import { Doctors } from './Component/Doctors';
-import { Reminder } from './Component/Reminder';
+import { Nav } from "./components/Nav";
+import { Home } from './pages/Home';
+import { BMI } from './pages/BMI';
+import { Doctors } from './pages/Doctors';
+import { Reminder } from './pages/Reminder';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Chatbot } from './Component/Chatbot';
-import { MainChat } from './Component/Chat/Main';
-import { Messaging } from './Component/Message';
-import { DoctorMessage } from './Component/DoctorMessage';
-import Login from './Component/Login';
-import Register from './Component/Register';
-import PatientDashboard from './Component/Dashboard/PatientDashboard';
-import DoctorDashboard from './Component/Dashboard/DoctorDashboard';
+import { Chatbot } from './pages/Chatbot';
+import { MainChat } from './pages/Chat/Main';
+import { Messaging } from './pages/Message';
+import { DoctorMessage } from './pages/DoctorMessage';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import PatientDashboard from './pages/Dashboard/PatientDashboard';
+import DoctorDashboard from './pages/Dashboard/DoctorDashboard';
 
-import SessionManager from './Component/SessionManager';
+import SessionManager from './components/SessionManager';
 
 import { Toaster } from 'react-hot-toast';
 
