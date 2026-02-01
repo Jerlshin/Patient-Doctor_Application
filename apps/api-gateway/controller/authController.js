@@ -1,67 +1,102 @@
 const User = require("../model/User");
 const Doctor = require("../model/Doctor");
-const path = require('path');
 
 module.exports.register = async (req, res, next) => {
     try {
-        const { email, role, ...otherData } = req.body;
-        console.log("Registering user:", email, role);
+        // Log the body to debug what frontend sends
+        console.log("Register Request Body:", req.body);
+        
+        const { email, role, password, name, type, ...otherData } = req.body;
+        
+        // Normalize role (frontend might send 'type' or 'role')
+        const userRole = (role || type || 'patient').toLowerCase();
 
-        // Check if user already exists
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ error: "User already exists" });
-        }
-
-        // Handle profile image upload
+        // Handle Profile Image
         let profileImage = "";
         if (req.file) {
-            profileImage = req.file.path; // Store the full path or relative path
+            profileImage = req.file.filename; 
         }
 
-        if (role === 'doctor') {
-            // Create Doctor logic (if separate collection needed, else just User with role)
-            // For now assuming unified User model with role field or separate Doctor model
-            // Keeping consistent with previous logic, assuming Single User model with 'role'
-            // If separate doctor logic exists, handle it.
-            // Based on previous code, likely just User.
+        if (userRole === 'doctor') {
+            // Check if doctor exists
+            const existingDoctor = await Doctor.findOne({ email });
+            if (existingDoctor) {
+                return res.json({ msg: "Doctor with this email already exists", status: false });
+            }
+
+            // Create new Doctor
+            const newDoctor = new Doctor({
+                name,
+                email,
+                password, // NOTE: In production, hash this password (e.g., bcrypt)
+                role: 'doctor',
+                image: profileImage,
+                specialization: otherData.specialization || 'General Physician', // Fallback
+                ...otherData
+            });
+
+            await newDoctor.save();
+            return res.status(201).json({ status: true, msg: "Doctor registered successfully", user: newDoctor });
+
+        } else {
+            // Default to Patient
+            const existingUser = await User.findOne({ email });
+            if (existingUser) {
+                return res.json({ msg: "Patient with this email already exists", status: false });
+            }
+
+            // Create new Patient
+            const newUser = new User({
+                name,
+                email,
+                password, // NOTE: In production, hash this password
+                role: 'patient',
+                profileImage: profileImage,
+                ...otherData
+            });
+
+            await newUser.save();
+            return res.status(201).json({ status: true, msg: "Patient registered successfully", user: newUser });
         }
-
-        const newUser = new User({
-            email,
-            role,
-            profileImage,
-            ...otherData
-        });
-
-        await newUser.save();
-
-        res.status(201).json({
-            message: "User registered successfully",
-            user: { ...newUser.toObject(), profileImage: profileImage }
-        });
 
     } catch (ex) {
         console.error("Register Error:", ex);
-        next(ex);
+        res.status(500).json({ msg: ex.message || "Registration failed due to server error", status: false });
     }
 };
 
 module.exports.login = async (req, res, next) => {
     try {
-        const { email, password } = req.body;
-        const user = await User.findOne({ email });
-        if (!user)
-            return res.json({ msg: "Incorrect Username or Password", status: false });
+        const { email, password, role, type } = req.body;
+        
+        // Normalize role
+        const userRole = (role || type || 'patient').toLowerCase();
+        
+        let user = null;
 
-        // Simple password check (should be hashed in production!)
-        if (user.password !== password) {
-            return res.json({ msg: "Incorrect Username or Password", status: false });
+        if (userRole === 'doctor') {
+            user = await Doctor.findOne({ email });
+        } else {
+            user = await User.findOne({ email });
         }
 
-        // Return user info including profileImage
-        return res.json({ status: true, user });
+        if (!user) {
+            return res.json({ msg: "Incorrect Email or Role selected", status: false });
+        }
+        
+        // Simple password check
+        // NOTE: If you add hashing in Register, use bcrypt.compare here
+        if (user.password !== password) {
+            return res.json({ msg: "Incorrect Password", status: false });
+        }
+
+        // Return user data (excluding password ideally, but keeping it simple for now)
+        const userObj = user.toObject();
+        delete userObj.password;
+
+        return res.json({ status: true, user: userObj });
     } catch (ex) {
+        console.error("Login Error:", ex);
         next(ex);
     }
 };

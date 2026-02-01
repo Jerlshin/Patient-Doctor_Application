@@ -4,12 +4,24 @@ const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+    role: { type: String, default: 'patient' },
+    
+    // Patient Specific Details
     age: { type: Number },
     gender: { type: String, enum: ['Male', 'Female', 'Other'] },
     bloodGroup: { type: String },
-    medicalHistory: { type: String }, // storing as text or JSON string for now
+    phoneNumber: { type: String },
+    address: { type: String },
+    
+    // Medical Info
+    medicalHistory: { type: String }, // Stored as text or JSON string
+    allergies: { type: String },
+    currentMedications: { type: String },
+    emergencyContact: { type: String },
+
     bio: { type: String },
-    profileImage: { type: String },
+    profileImage: { type: String }, // Filename of uploaded image
+    
     createdAt: { type: Date, default: Date.now }
 }, {
     collection: 'users'

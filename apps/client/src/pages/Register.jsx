@@ -1,301 +1,678 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, Mail, Lock, Stethoscope, Briefcase, MapPin, Droplet, Upload, ArrowRight, FileText, CheckCircle2 } from 'lucide-react';
+import { 
+  User, Mail, Lock, Stethoscope, Briefcase, MapPin, Droplet, Upload, 
+  ArrowRight, Phone, FileText, CheckCircle2, Building, DollarSign, 
+  Clock, Activity, Shield, Star, Eye, EyeOff, X
+} from 'lucide-react';
 import { API_BASE_URL } from "../config/constant";
 import { toast } from 'react-hot-toast';
 import { Button, Input } from '../components/ui';
 
 export default function Register() {
-    const [role, setRole] = useState('user'); // 'user' (Patient) or 'doctor'
-    const [formData, setFormData] = useState({
-        name: '', email: '', password: '', confirmPassword: '',
-        age: '', gender: 'Male', bloodGroup: '',
-        medicalHistory: '', // Patient specific
-        specialization: '', licenseNumber: '', experience: '', address: '', bio: '' // Doctor specific
-    });
+  const [role, setRole] = useState('patient');
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState({
+    name: '', email: '', password: '', confirmPassword: '',
+    phoneNumber: '', address: '',
+    // Patient Specific
+    age: '', gender: 'Male', bloodGroup: '',
+    medicalHistory: '', emergencyContact: '',
+    // Doctor Specific
+    specialization: '', licenseNumber: '', experience: '',
+    bio: '', consultationFee: '', availableHours: ''
+  });
+  
+  const [profileImage, setProfileImage] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast.error('Image size should be less than 5MB');
+        return;
+      }
+      setProfileImage(file);
+      setPreviewImage(URL.createObjectURL(file));
+    }
+  };
+
+  const removeImage = () => {
+    setProfileImage(null);
+    setPreviewImage(null);
+  };
+
+  const validateStep = (step) => {
+    if (step === 1) {
+      if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+        toast.error('Please fill in all required fields');
+        return false;
+      }
+      if (formData.password.length < 6) {
+        toast.error('Password must be at least 6 characters');
+        return false;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        toast.error('Passwords do not match');
+        return false;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        toast.error('Please enter a valid email');
+        return false;
+      }
+    }
     
-    // File states
-    const [profileImage, setProfileImage] = useState(null);
-    const [previewImage, setPreviewImage] = useState(null);
-    const [resume, setResume] = useState(null); // Doctor
-    
-    const [loading, setLoading] = useState(false);
-    const navigate = useNavigate();
+    if (step === 2) {
+      if (!formData.phoneNumber || !formData.address) {
+        toast.error('Please fill in all required fields');
+        return false;
+      }
+    }
 
-    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (step === 3 && role === 'doctor') {
+      if (!formData.specialization || !formData.licenseNumber || !formData.experience) {
+        toast.error('Please fill in all required fields');
+        return false;
+      }
+    }
 
-    const handleFileChange = (e, setter, isImage = false) => {
-        const file = e.target.files[0];
-        if (file) {
-            setter(file);
-            if (isImage) {
-                setPreviewImage(URL.createObjectURL(file));
-            }
-        }
-    };
+    return true;
+  };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+  const nextStep = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const prevStep = () => setCurrentStep(currentStep - 1);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!validateStep(currentStep)) return;
+
+    setLoading(true);
+
+    try {
+      const data = new FormData();
+      
+      // Append Common Fields
+      data.append('name', formData.name);
+      data.append('email', formData.email);
+      data.append('password', formData.password);
+      data.append('role', role);
+      data.append('phoneNumber', formData.phoneNumber);
+      data.append('address', formData.address);
+
+      if (profileImage) data.append('profileImage', profileImage);
+
+      // Append Role-Specific Fields
+      if (role === 'patient') {
+        data.append('age', formData.age);
+        data.append('gender', formData.gender);
+        data.append('bloodGroup', formData.bloodGroup);
+        data.append('medicalHistory', formData.medicalHistory);
+        data.append('emergencyContact', formData.emergencyContact);
+      } else {
+        data.append('specialization', formData.specialization);
+        data.append('licenseNumber', formData.licenseNumber);
+        data.append('experience', formData.experience);
+        data.append('bio', formData.bio);
+        data.append('consultationFee', formData.consultationFee);
+        data.append('availableHours', formData.availableHours);
+      }
+
+      const response = await axios.post(`${API_BASE_URL}/doctors/register`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      if (response.data.status) {
+        toast.success(`Welcome, ${formData.name}! Account created successfully.`);
+        setTimeout(() => navigate('/login'), 1500);
+      } else {
+        toast.error(response.data.msg || "Registration failed");
+      }
+
+    } catch (error) {
+      console.error("Registration Error:", error);
+      toast.error(error.response?.data?.msg || "An error occurred during registration");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalSteps = role === 'patient' ? 3 : 3;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30 py-8 px-4">
+      <div className="max-w-6xl mx-auto">
         
-        if (formData.password !== formData.confirmPassword) {
-            toast.error("Passwords don't match");
-            return;
-        }
+        {/* Header */}
+        <div className="text-center mb-8">
+          <Link to="/" className="inline-flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center">
+              <Activity size={24} className="text-white" />
+            </div>
+            <span className="text-2xl font-bold text-gray-900">MedAI Connect</span>
+          </Link>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Create Your Account</h1>
+          <p className="text-gray-600">Join thousands of users transforming healthcare</p>
+        </div>
 
-        setLoading(true);
-        const data = new FormData();
-        
-        // Append common fields
-        Object.keys(formData).forEach(key => {
-            // Filter fields based on role to avoid sending empty irrelevant data
-            if (role === 'user' && ['specialization', 'licenseNumber', 'experience', 'bio'].includes(key)) return;
-            if (role === 'doctor' && ['medicalHistory'].includes(key)) return;
-            data.append(key, formData[key]);
-        });
-
-        data.append('role', role);
-        if (profileImage) data.append('profileImage', profileImage);
-        if (role === 'doctor' && resume) data.append('resume', resume);
-
-        try {
-            const endpoint = `${API_BASE_URL}/users`; // Assuming unified endpoint or specific one
-            // NOTE: Adjust endpoint if doctors register via /doctors/register
-            
-            await axios.post(endpoint, data, { headers: { 'Content-Type': 'multipart/form-data' } });
-            
-            toast.success('Account created successfully!');
-            setTimeout(() => navigate('/login'), 1500);
-        } catch (error) {
-            console.error(error);
-            toast.error(error.response?.data?.message || 'Registration failed. Try again.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-8">
-            <div className="bg-white rounded-[2rem] shadow-2xl overflow-hidden w-full max-w-7xl flex flex-col lg:flex-row min-h-[800px]">
+        <div className="grid lg:grid-cols-3 gap-8">
+          
+          {/* Left Sidebar - Role Selection & Progress */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 sticky top-8">
+              
+              {/* Role Selection */}
+              <div className="mb-8">
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">
+                  Account Type
+                </h3>
                 
-                {/* Left Side - Contextual Information */}
-                <div className={`lg:w-2/5 p-12 text-white flex flex-col justify-between relative transition-colors duration-500 ${role === 'doctor' ? 'bg-slate-900' : 'bg-blue-600'}`}>
-                     {/* Background Pattern */}
-                     <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }}></div>
-                     
-                     <div className="relative z-10">
-                        <Link to="/" className="inline-flex items-center gap-2 text-white/90 hover:text-white transition-colors mb-12">
-                            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                                <ArrowRight className="rotate-180" size={16} />
-                            </div>
-                            <span className="font-medium">Back to Home</span>
-                        </Link>
-                        
-                        <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-6">
-                            {role === 'doctor' ? 'Join our Network of Specialists' : 'Start Your Health Journey Today'}
-                        </h1>
-                        <p className="text-lg text-white/70 leading-relaxed">
-                            {role === 'doctor' 
-                                ? 'Connect with thousands of patients, manage appointments efficiently, and use AI tools to enhance your practice.'
-                                : 'Get 24/7 access to top doctors, secure health records, and AI-powered health insights at your fingertips.'
-                            }
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRole('patient');
+                      setCurrentStep(1);
+                    }}
+                    className={`w-full p-4 rounded-2xl border-2 text-left transition-all duration-300 ${
+                      role === 'patient'
+                        ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-500/20'
+                        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
+                        role === 'patient'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        <User size={22} />
+                      </div>
+                      <div className="flex-1">
+                        <p className={`font-bold ${role === 'patient' ? 'text-blue-700' : 'text-gray-700'}`}>
+                          Patient
                         </p>
-                     </div>
+                        <p className="text-xs text-gray-500">Book appointments & track health</p>
+                      </div>
+                      {role === 'patient' && (
+                        <CheckCircle2 size={20} className="text-blue-600" />
+                      )}
+                    </div>
+                  </button>
 
-                     <div className="relative z-10 mt-12 space-y-4">
-                        {[
-                            role === 'doctor' ? 'Verified Practitioner Badge' : 'Instant AI Consultation',
-                            role === 'doctor' ? 'Smart Patient Management' : 'Secure Medical History',
-                            role === 'doctor' ? 'Analytics Dashboard' : 'Medicine Reminders'
-                        ].map((item, i) => (
-                            <div key={i} className="flex items-center gap-3 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/10">
-                                <CheckCircle2 className="text-green-400" size={20} />
-                                <span className="font-medium">{item}</span>
-                            </div>
-                        ))}
-                     </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRole('doctor');
+                      setCurrentStep(1);
+                    }}
+                    className={`w-full p-4 rounded-2xl border-2 text-left transition-all duration-300 ${
+                      role === 'doctor'
+                        ? 'border-indigo-500 bg-indigo-50 shadow-lg shadow-indigo-500/20'
+                        : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
+                        role === 'doctor'
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        <Stethoscope size={22} />
+                      </div>
+                      <div className="flex-1">
+                        <p className={`font-bold ${role === 'doctor' ? 'text-indigo-700' : 'text-gray-700'}`}>
+                          Doctor
+                        </p>
+                        <p className="text-xs text-gray-500">Provide care & manage patients</p>
+                      </div>
+                      {role === 'doctor' && (
+                        <CheckCircle2 size={20} className="text-indigo-600" />
+                      )}
+                    </div>
+                  </button>
                 </div>
+              </div>
 
-                {/* Right Side - Form */}
-                <div className="lg:w-3/5 p-8 md:p-12 lg:p-16 overflow-y-auto max-h-[100vh] custom-scrollbar bg-white">
-                    <div className="max-w-2xl mx-auto">
-                        
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-                            <div>
-                                <h2 className="text-3xl font-bold text-slate-900">Create Account</h2>
-                                <p className="text-slate-500 mt-1">Fill in your details to get started.</p>
-                            </div>
-                            
-                            {/* Role Toggle */}
-                            <div className="bg-slate-100 p-1.5 rounded-xl inline-flex self-start sm:self-auto">
-                                <button
-                                    onClick={() => setRole('user')}
-                                    className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${
-                                        role === 'user' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                    }`}
-                                >
-                                    Patient
-                                </button>
-                                <button
-                                    onClick={() => setRole('doctor')}
-                                    className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${
-                                        role === 'doctor' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                    }`}
-                                >
-                                    Doctor
-                                </button>
-                            </div>
+              {/* Progress Steps */}
+              <div>
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">
+                  Registration Progress
+                </h3>
+                <div className="space-y-3">
+                  {[
+                    { num: 1, label: 'Account Details' },
+                    { num: 2, label: 'Contact Information' },
+                    { num: 3, label: role === 'doctor' ? 'Professional Info' : 'Medical History' },
+                  ].map((step) => (
+                    <div
+                      key={step.num}
+                      className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
+                        currentStep === step.num
+                          ? role === 'doctor'
+                            ? 'bg-indigo-50 text-indigo-700'
+                            : 'bg-blue-50 text-blue-700'
+                          : currentStep > step.num
+                          ? 'bg-green-50 text-green-700'
+                          : 'bg-gray-50 text-gray-500'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+                        currentStep === step.num
+                          ? role === 'doctor'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-blue-600 text-white'
+                          : currentStep > step.num
+                          ? 'bg-green-600 text-white'
+                          : 'bg-gray-200 text-gray-600'
+                      }`}>
+                        {currentStep > step.num ? <CheckCircle2 size={16} /> : step.num}
+                      </div>
+                      <span className="text-sm font-semibold">{step.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Security Badge */}
+              <div className="mt-8 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <div className="flex items-start gap-3">
+                  <Shield size={20} className="text-green-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Secure Registration</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Your data is encrypted and protected with enterprise-grade security.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right - Registration Form */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 lg:p-10">
+              
+              <form onSubmit={handleSubmit} className="space-y-6">
+                
+                {/* Step 1: Account Details */}
+                {currentStep === 1 && (
+                  <div className="space-y-6 animate-fade-in">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Details</h2>
+                      <p className="text-gray-600">Create your login credentials</p>
+                    </div>
+
+                    <Input
+                      label="Full Name"
+                      name="name"
+                      placeholder="John Doe"
+                      value={formData.name}
+                      onChange={handleChange}
+                      leftIcon={<User size={18} />}
+                      required
+                    />
+
+                    <Input
+                      label="Email Address"
+                      name="email"
+                      type="email"
+                      placeholder={role === 'doctor' ? 'doctor@hospital.com' : 'patient@example.com'}
+                      value={formData.email}
+                      onChange={handleChange}
+                      leftIcon={<Mail size={18} />}
+                      required
+                    />
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="relative">
+                        <Input
+                          label="Password"
+                          name="password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Min. 6 characters"
+                          value={formData.password}
+                          onChange={handleChange}
+                          leftIcon={<Lock size={18} />}
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-[42px] text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+
+                      <div className="relative">
+                        <Input
+                          label="Confirm Password"
+                          name="confirmPassword"
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          placeholder="Re-enter password"
+                          value={formData.confirmPassword}
+                          onChange={handleChange}
+                          leftIcon={<Lock size={18} />}
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-[42px] text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 2: Contact Information */}
+                {currentStep === 2 && (
+                  <div className="space-y-6 animate-fade-in">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900 mb-2">Contact Information</h2>
+                      <p className="text-gray-600">How can we reach you?</p>
+                    </div>
+
+                    <Input
+                      label="Phone Number"
+                      name="phoneNumber"
+                      type="tel"
+                      placeholder="+1 (555) 000-0000"
+                      value={formData.phoneNumber}
+                      onChange={handleChange}
+                      leftIcon={<Phone size={18} />}
+                      required
+                    />
+
+                    <Input
+                      label="Address"
+                      name="address"
+                      placeholder="123 Main St, City, State, ZIP"
+                      value={formData.address}
+                      onChange={handleChange}
+                      leftIcon={<MapPin size={18} />}
+                      required
+                    />
+
+                    {/* Profile Image Upload */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-3">
+                        Profile Photo (Optional)
+                      </label>
+                      
+                      {previewImage ? (
+                        <div className="relative inline-block">
+                          <img
+                            src={previewImage}
+                            alt="Preview"
+                            className="w-32 h-32 rounded-2xl object-cover border-2 border-gray-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={removeImage}
+                            className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-gray-300 border-dashed rounded-2xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <Upload className="w-10 h-10 mb-3 text-gray-400" />
+                            <p className="mb-2 text-sm text-gray-600">
+                              <span className="font-semibold">Click to upload</span> or drag and drop
+                            </p>
+                            <p className="text-xs text-gray-500">PNG, JPG (MAX. 5MB)</p>
+                          </div>
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 3: Role-Specific Information */}
+                {currentStep === 3 && (
+                  <div className="space-y-6 animate-fade-in">
+                    {role === 'patient' ? (
+                      <>
+                        <div>
+                          <h2 className="text-2xl font-bold text-gray-900 mb-2">Medical Information</h2>
+                          <p className="text-gray-600">Help us provide better care</p>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-8">
-                            {/* Profile Image Upload */}
-                            <div className="flex items-center gap-6">
-                                <div className="relative group cursor-pointer">
-                                    <div className="w-24 h-24 rounded-2xl overflow-hidden bg-slate-100 ring-4 ring-slate-50 group-hover:ring-blue-50 transition-all">
-                                        {previewImage ? (
-                                            <img src={previewImage} alt="Preview" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
-                                                <User size={32} strokeWidth={1.5} />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <label htmlFor="profile-upload" className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl font-medium text-xs">
-                                        Change
-                                    </label>
-                                    <input type="file" id="profile-upload" className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, setProfileImage, true)} />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold text-slate-900">Profile Photo</h3>
-                                    <p className="text-xs text-slate-500 mt-1">Recommended: Square JPG, PNG. Max 2MB.</p>
-                                </div>
-                            </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <Input
+                            label="Age"
+                            name="age"
+                            type="number"
+                            placeholder="25"
+                            value={formData.age}
+                            onChange={handleChange}
+                          />
 
-                            {/* Section: Account Info */}
-                            <div className="space-y-5">
-                                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">Account Information</h3>
-                                <div className="grid md:grid-cols-2 gap-5">
-                                    <Input label="Full Name" name="name" icon={User} value={formData.name} onChange={handleChange} required placeholder="John Doe" />
-                                    <Input label="Email Address" name="email" type="email" icon={Mail} value={formData.email} onChange={handleChange} required placeholder="john@example.com" />
-                                </div>
-                                <div className="grid md:grid-cols-2 gap-5">
-                                    <Input label="Password" name="password" type="password" icon={Lock} value={formData.password} onChange={handleChange} required placeholder="••••••••" />
-                                    <Input label="Confirm Password" name="confirmPassword" type="password" icon={Lock} value={formData.confirmPassword} onChange={handleChange} required placeholder="••••••••" />
-                                </div>
-                            </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                              Gender
+                            </label>
+                            <select
+                              name="gender"
+                              value={formData.gender}
+                              onChange={handleChange}
+                              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-all"
+                            >
+                              <option value="Male">Male</option>
+                              <option value="Female">Female</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+                        </div>
 
-                            {/* Section: Personal Details */}
-                            <div className="space-y-5">
-                                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">Personal Details</h3>
-                                <div className="grid md:grid-cols-3 gap-5">
-                                    <Input label="Age" name="age" type="number" value={formData.age} onChange={handleChange} required placeholder="25" />
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-sm font-semibold text-slate-700">Gender</label>
-                                        <select name="gender" value={formData.gender} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-slate-600">
-                                            <option value="Male">Male</option>
-                                            <option value="Female">Female</option>
-                                            <option value="Other">Other</option>
-                                        </select>
-                                    </div>
-                                    <Input label="Blood Group" name="bloodGroup" icon={Droplet} value={formData.bloodGroup} onChange={handleChange} required placeholder="O+" />
-                                </div>
-                            </div>
+                        <Input
+                          label="Blood Group"
+                          name="bloodGroup"
+                          placeholder="O+"
+                          value={formData.bloodGroup}
+                          onChange={handleChange}
+                          leftIcon={<Droplet size={18} />}
+                        />
 
-                            {/* Section: Role Specifics */}
-                            {role === 'doctor' ? (
-                                <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">Professional Credentials</h3>
-                                    
-                                    <div className="grid md:grid-cols-2 gap-5">
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-sm font-semibold text-slate-700">Specialization</label>
-                                            <div className="relative">
-                                                <Stethoscope className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                                                <select name="specialization" value={formData.specialization} onChange={handleChange} className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-slate-600 appearance-none">
-                                                    <option value="">Select Specialization</option>
-                                                    <option value="Cardiologist">Cardiologist</option>
-                                                    <option value="Dermatologist">Dermatologist</option>
-                                                    <option value="Neurologist">Neurologist</option>
-                                                    <option value="Pediatrician">Pediatrician</option>
-                                                    <option value="General Physician">General Physician</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <Input label="Years of Experience" name="experience" icon={Briefcase} type="number" value={formData.experience} onChange={handleChange} required placeholder="e.g. 8" />
-                                    </div>
+                        <Input
+                          label="Emergency Contact"
+                          name="emergencyContact"
+                          placeholder="Name & Phone Number"
+                          value={formData.emergencyContact}
+                          onChange={handleChange}
+                          leftIcon={<Phone size={18} />}
+                        />
 
-                                    <div className="grid md:grid-cols-2 gap-5">
-                                         <Input label="License Number" name="licenseNumber" icon={Briefcase} value={formData.licenseNumber} onChange={handleChange} required placeholder="MED-123456" />
-                                         <Input label="Clinic/Hospital Address" name="address" icon={MapPin} value={formData.address} onChange={handleChange} required placeholder="123 Health St." />
-                                    </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Medical History (Optional)
+                          </label>
+                          <textarea
+                            name="medicalHistory"
+                            value={formData.medicalHistory}
+                            onChange={handleChange}
+                            placeholder="Any known allergies, chronic conditions, past surgeries..."
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 min-h-[120px] resize-none transition-all"
+                          ></textarea>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <h2 className="text-2xl font-bold text-gray-900 mb-2">Professional Information</h2>
+                          <p className="text-gray-600">Tell us about your medical practice</p>
+                        </div>
 
-                                    <div>
-                                        <label className="text-sm font-semibold text-slate-700 mb-2 block">Professional Bio</label>
-                                        <textarea 
-                                            name="bio" 
-                                            value={formData.bio} 
-                                            onChange={handleChange} 
-                                            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all min-h-[100px]"
-                                            placeholder="Briefly describe your expertise..."
-                                        ></textarea>
-                                    </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                              Specialization *
+                            </label>
+                            <select
+                              name="specialization"
+                              value={formData.specialization}
+                              onChange={handleChange}
+                              required
+                              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white transition-all"
+                            >
+                              <option value="">Select Specialization</option>
+                              <option value="General Physician">General Physician</option>
+                              <option value="Cardiologist">Cardiologist</option>
+                              <option value="Dermatologist">Dermatologist</option>
+                              <option value="Neurologist">Neurologist</option>
+                              <option value="Orthopedic">Orthopedic</option>
+                              <option value="Pediatrician">Pediatrician</option>
+                              <option value="Psychiatrist">Psychiatrist</option>
+                              <option value="Surgeon">Surgeon</option>
+                            </select>
+                          </div>
 
-                                    <div className="p-5 border border-dashed border-slate-300 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                                                    <FileText size={20} />
-                                                </div>
-                                                <div>
-                                                    <p className="font-semibold text-slate-700 text-sm">Upload Medical License / Resume</p>
-                                                    <p className="text-xs text-slate-500">{resume ? resume.name : 'PDF or JPG (Max 5MB)'}</p>
-                                                </div>
-                                            </div>
-                                            <label className="px-4 py-2 bg-white border border-slate-200 shadow-sm rounded-lg text-sm font-medium text-slate-700 hover:text-blue-600 cursor-pointer transition-colors">
-                                                Browse
-                                                <input type="file" className="hidden" accept=".pdf,.jpg,.png" onChange={(e) => handleFileChange(e, setResume)} />
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">Medical Profile</h3>
-                                    <div>
-                                        <label className="text-sm font-semibold text-slate-700 mb-2 block">Medical History (Optional)</label>
-                                        <textarea 
-                                            name="medicalHistory" 
-                                            value={formData.medicalHistory} 
-                                            onChange={handleChange} 
-                                            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all min-h-[100px]"
-                                            placeholder="Any existing conditions, allergies, or past surgeries..."
-                                        ></textarea>
-                                    </div>
-                                </div>
-                            )}
+                          <Input
+                            label="Years of Experience"
+                            name="experience"
+                            type="number"
+                            placeholder="5"
+                            value={formData.experience}
+                            onChange={handleChange}
+                            leftIcon={<Briefcase size={18} />}
+                            required
+                          />
+                        </div>
 
-                            {/* Submit Button */}
-                            <div className="pt-4">
-                                <Button
-                                    type="submit"
-                                    className={`w-full py-4 text-lg shadow-xl transition-all ${role === 'doctor' ? 'shadow-slate-900/20 hover:shadow-slate-900/30 bg-slate-900 hover:bg-slate-800' : 'shadow-blue-500/25 hover:shadow-blue-500/40 bg-blue-600 hover:bg-blue-700'}`}
-                                    loading={loading}
-                                    rightIcon={!loading && <ArrowRight size={20} />}
-                                >
-                                    {role === 'doctor' ? 'Submit Application' : 'Create Patient Account'}
-                                </Button>
-                            </div>
-                        </form>
+                        <Input
+                          label="Medical License Number"
+                          name="licenseNumber"
+                          placeholder="LIC-123456"
+                          value={formData.licenseNumber}
+                          onChange={handleChange}
+                          leftIcon={<FileText size={18} />}
+                          required
+                        />
 
-                        <p className="text-center mt-8 text-slate-500 text-sm">
-                            Already have an account?{' '}
-                            <Link to="/login" className={`font-bold hover:underline ${role === 'doctor' ? 'text-slate-900' : 'text-blue-600'}`}>
-                                Sign In
-                            </Link>
-                        </p>
-                    </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <Input
+                            label="Consultation Fee ($)"
+                            name="consultationFee"
+                            type="number"
+                            placeholder="50"
+                            value={formData.consultationFee}
+                            onChange={handleChange}
+                            leftIcon={<DollarSign size={18} />}
+                          />
+
+                          <Input
+                            label="Available Hours"
+                            name="availableHours"
+                            placeholder="9 AM - 5 PM"
+                            value={formData.availableHours}
+                            onChange={handleChange}
+                            leftIcon={<Clock size={18} />}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Professional Bio (Optional)
+                          </label>
+                          <textarea
+                            name="bio"
+                            value={formData.bio}
+                            onChange={handleChange}
+                            placeholder="Tell patients about your expertise, education, and approach to care..."
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 min-h-[120px] resize-none transition-all"
+                          ></textarea>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Navigation Buttons */}
+                <div className="flex items-center justify-between pt-6 border-t border-gray-200">
+                  {currentStep > 1 ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={prevStep}
+                      className="px-6"
+                    >
+                      Back
+                    </Button>
+                  ) : (
+                    <Link
+                      to="/login"
+                      className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                    >
+                      Already have an account?
+                    </Link>
+                  )}
+
+                  {currentStep < totalSteps ? (
+                    <Button
+                      type="button"
+                      onClick={nextStep}
+                      rightIcon={<ArrowRight size={18} />}
+                      className="px-8"
+                    >
+                      Continue
+                    </Button>
+                  ) : (
+                    <Button
+                      type="submit"
+                      loading={loading}
+                      rightIcon={!loading && <CheckCircle2 size={18} />}
+                      className={`px-8 ${
+                        role === 'doctor'
+                          ? 'bg-indigo-600 hover:bg-indigo-700'
+                          : ''
+                      }`}
+                    >
+                      {loading ? 'Creating Account...' : 'Complete Registration'}
+                    </Button>
+                  )}
                 </div>
+              </form>
             </div>
+
+            {/* Trust Indicators */}
+            <div className="mt-6 flex items-center justify-center gap-8 text-sm text-gray-600">
+              <div className="flex items-center gap-2">
+                <Shield size={16} className="text-green-600" />
+                <span>Secure & Encrypted</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Star size={16} className="text-yellow-500 fill-current" />
+                <span>Trusted by 10K+ users</span>
+              </div>
+            </div>
+          </div>
         </div>
-    );
+      </div>
+    </div>
+  );
 }

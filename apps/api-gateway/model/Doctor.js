@@ -4,15 +4,27 @@ const doctorSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    specialization: { type: String, required: true },
-    licenseNumber: { type: String, required: true }, // [NEW] License Number
-    experience: { type: Number, required: true }, // Years of experience
-    address: { type: String, required: true }, // Clinic/Hospital Address
-    bio: { type: String, required: true },
-    rating: { type: Number, default: 4.5 },
-    image: { type: String }, // URL or path to image
+    role: { type: String, default: 'doctor' },
+
+    // Professional Details
+    specialization: { type: String, required: true }, // e.g., Cardiologist
+    licenseNumber: { type: String }, // Medical License ID
+    experience: { type: Number }, // Years of experience
+    degrees: { type: String }, // MBBS, MD, etc.
+    
+    // Clinic/Hospital Details
+    address: { type: String }, 
     location: { type: String }, // City/Area for filtering
-    profession: { type: String }, // Keeping for backward compatibility if needed, or alias to specialization
+    consultationFee: { type: Number },
+    availableHours: { type: String }, // e.g. "09:00 AM - 05:00 PM"
+    
+    // Meta
+    bio: { type: String },
+    rating: { type: Number, default: 0 },
+    ratingCount: { type: Number, default: 0 },
+    image: { type: String }, // Filename of uploaded image
+    profession: { type: String }, // Alias/Search tag
+
     createdAt: { type: Date, default: Date.now }
 }, {
     collection: 'doctors'

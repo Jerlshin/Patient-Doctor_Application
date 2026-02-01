@@ -1,141 +1,109 @@
 const express = require("express");
 const studentRoute = express.Router();
-const studentSchema = require("../model/schema");
-const messageSchema = require("../model/schema2");
 const mongoose = require("mongoose");
 const multer = require("multer");
 const path = require("path");
-const Document = require("../model/Document");
-const axios = require("axios");
-const { v4: uuidv4 } = require("uuid");
 const fs = require("fs");
-const FormData = require("form-data");
+const { v4: uuidv4 } = require("uuid");
+
+// Controllers
 const authController = require("./authController");
 const appointmentController = require("./appointmentController");
 const documentController = require("./documentController");
 
-// Python AI Engine URL
-const AI_ENGINE_URL = process.env.AI_ENGINE_URL || "http://localhost:5000";
+// Models (Legacy support)
+const studentSchema = require("../model/schema"); // Legacy doctors?
+const messageSchema = require("../model/schema2");
+const Document = require("../model/Document");
 
-// Multer Setup with UUIDs to prevent race conditions
+// --- Multer Configuration ---
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         // Ensure uploads directory exists
-        const uploadDir = path.join(__dirname, "../uploads");
+        const uploadDir = path.join(__dirname, "../../uploads");
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-        // secure filename with UUID
+        // Secure filename with UUID
         cb(null, `${uuidv4()}${path.extname(file.originalname)}`);
     },
 });
 
 const upload = multer({ storage });
 
-// --- Auth Routes ---
-studentRoute.post("/register", documentController.profileImageMiddleware, authController.register);
+
+// --- Authentication Routes ---
+
+// Register: Handles file upload for profile image
+studentRoute.post("/register", upload.single("profileImage"), authController.register);
+
+// Login
 studentRoute.post("/login", authController.login);
 
-// --- Appointment Routes ---
-studentRoute.post("/appointments/book", appointmentController.bookAppointment);
-studentRoute.get("/appointments", appointmentController.getAppointments);
-studentRoute.put("/appointments/:id", appointmentController.updateStatus);
-studentRoute.post("/ai/summarize-appointment/:id", appointmentController.summarizeSymptoms);
 
-// --- AI Gateway Routes ---
+// --- Doctor/User Data Routes ---
 
-// Proxy for General Query
-studentRoute.post("/ai/query", async (req, res) => {
+// Get all doctors (Legacy + New support)
+studentRoute.get("/", async (req, res) => {
     try {
-        const response = await axios.post(`${AI_ENGINE_URL}/query`, req.body);
-        res.json(response.data);
-    } catch (error) {
-        console.error("AI Query Error:", error.message);
-        res.status(500).json({ error: "Failed to communicate with AI Engine" });
-    }
-});
-
-// Proxy for Patient Query
-studentRoute.post("/ai/patient_query", async (req, res) => {
-    try {
-        const response = await axios.post(`${AI_ENGINE_URL}/patient_querry`, req.body);
-        res.json(response.data);
-    } catch (error) {
-        console.error("AI Patient Query Error:", error.message);
-        res.status(500).json({ error: "Failed to communicate with AI Engine" });
-    }
-});
-
-// File Upload & Processing (Fixes Race Condition)
-studentRoute.post("/ai/upload-pdf", upload.single("file"), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).send("No file uploaded");
-        }
-
-        // Pass the absolute file path to Python instead of relying on a shared overwrite
-        const absolutePath = req.file.path;
-        const userInput = req.body.user_input || "";
-
-        // Call Python endpoint with file path
-        const response = await axios.post(`${AI_ENGINE_URL}/process-pdf`, {
-            file_path: absolutePath,
-            user_input: userInput
-        });
-
-        // Merge Python response with file_path so frontend can store it for context
-        res.json({ ...response.data, file_path: absolutePath });
+        // Assuming we want to return doctors from the new Doctor model
+        // If you still use 'studentSchema' (legacy), switch this line.
+        const Doctor = require("../model/Doctor");
+        const doctors = await Doctor.find({});
+        res.json(doctors);
     } catch (err) {
-        console.error("Upload/Process Error:", err.message);
-        res.status(500).send("Server Error processing PDF");
+        res.status(500).json({ error: err.message });
     }
 });
 
-// Voice Message Proxy
-studentRoute.post("/ai/voice-message", upload.single("audio"), async (req, res) => {
+// Get specific doctor/user by ID
+studentRoute.get("/message/:id", async (req, res) => {
     try {
-        if (!req.file) {
-            return res.status(400).send("No audio file uploaded");
+        const Doctor = require("../model/Doctor");
+        const User = require("../model/User");
+
+        const id = req.params.id;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ error: "Invalid ID format" });
         }
 
-        // We need to send the file to Python. Since it's audio, we can stream it or pass path.
-        // Passing path is efficient for local monorepo.
-        const absolutePath = req.file.path;
+        // Try finding in Doctor first, then User
+        let data = await Doctor.findById(id);
+        if (!data) {
+            data = await User.findById(id);
+        }
 
-        // Assuming Python side expects 'audio_path' or we can re-upload using FormData if needed.
-        // Let's stick to the pattern: Pass Path.
-        // NOTE: Need to update Python to handle this.
+        if (data) res.json(data);
+        else res.status(404).json({ error: "User/Doctor not found" });
 
-        // For now, let's try re-uploading via FormData to preserve Python's existing request.files logic if possible, 
-        // OR update python to take path. Updating Python is cleaner.
-        // But verify: Python uses `request.files['audio']`.
-        // I will actually send the file itself to be safe if `requests` supports it easily, 
-        // BUT passing path is much faster. I will define a new endpoint in Python `/process-voice-path`.
-
-        const response = await axios.post(`${AI_ENGINE_URL}/process-voice`, {
-            audio_path: absolutePath
-        });
-
-        res.json(response.data);
-
-    } catch (error) {
-        console.error("Voice Error:", error.message);
-        res.status(500).json({ error: "Voice processing failed" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
 
-// --- Existing Routes (Legacy Support / Database) ---
-
-studentRoute.post("/upload", upload.single("document"), async (req, res) => {
+// --- Document Routes ---
+studentRoute.post("/upload-document", upload.single("document"), async (req, res) => {
     try {
-        const { filename: document } = req.file;
-        const newDocument = new Document({ document });
+        if (!req.file) return res.status(400).send("No file uploaded.");
+
+        const { originalname, filename, path: filePath, mimetype, size } = req.file;
+        const { userId } = req.body; // Ensure frontend sends userId
+
+        const newDocument = new Document({
+            userId: userId ? new mongoose.Types.ObjectId(userId) : null, // Optional for now if legacy
+            filename,
+            originalName: originalname,
+            path: filePath,
+            mimetype,
+            size
+        });
+
         await newDocument.save();
-        res.status(201).send("Document uploaded successfully");
+        res.status(201).json({ msg: "Document uploaded successfully", document: newDocument });
     } catch (err) {
         console.error(err);
         res.status(500).send("Server Error");
@@ -143,51 +111,12 @@ studentRoute.post("/upload", upload.single("document"), async (req, res) => {
 });
 
 
-studentRoute.post("/create-doctors", (req, res) => {
-    studentSchema.create(req.body, (err, data) => {
-        if (err)
-            return err;
-        else
-            res.json(data);
-    })
-});
-
-
-studentRoute.get("/", (req, res) => {
-    studentSchema.find((err, data) => {
-        if (err)
-            return err;
-        else
-            res.json(data);
-    })
-});
-
-studentRoute.route("/message/:id")
-    .get((req, res) => {
-        studentSchema.findById(mongoose.Types.ObjectId(req.params.id), (err, data) => {
-            if (err)
-                return err;
-            else
-                res.json(data);
-        })
-    })
-
+// --- Message/Chat Routes (Legacy Support) ---
 studentRoute.post("/message/write", (req, res) => {
     messageSchema.create(req.body, (err, data) => {
-        if (err)
-            return err;
-        else
-            res.json(data);
-    })
-});
-
-studentRoute.get("/messages/fetch", (req, res) => {
-    messageSchema.find((err, data) => {
-        if (err)
-            return res.status(500).json({ error: "Internal server error" });
-        else
-            res.json(data);
-    })
+        if (err) return res.status(500).json(err);
+        res.json(data);
+    });
 });
 
 module.exports = studentRoute;

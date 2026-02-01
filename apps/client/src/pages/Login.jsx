@@ -3,182 +3,319 @@ import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '../config/constant';
 import toast from 'react-hot-toast';
-import { Mail, Lock, ArrowRight, Activity, ShieldCheck } from 'lucide-react';
+import { 
+  Mail, Lock, ArrowRight, User, Stethoscope, Eye, EyeOff, 
+  Shield, Heart, Activity, Users, Star
+} from 'lucide-react';
 import { Button, Input } from '../components/ui';
 
 export default function Login() {
-    const [role, setRole] = useState('user'); // 'user' (Patient) or 'doctor'
-    const [formData, setFormData] = useState({ email: '', password: '' });
-    const [isLoading, setIsLoading] = useState(false);
-    const navigate = useNavigate();
+  const [role, setRole] = useState('patient');
+  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
 
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!formData.email || !formData.password) {
-            toast.error('Please fill in all fields');
-            return;
-        }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!formData.email || !formData.password) {
+      toast.error('Please fill in all fields');
+      return;
+    }
 
-        setIsLoading(true);
+    setIsLoading(true);
 
-        try {
-            // Determine endpoint based on role for clarity, though backend might handle logic
-            const endpoint = role === 'doctor' ? `${API_BASE_URL}/doctors/login` : `${API_BASE_URL}/users/login`;
-            
-            // NOTE: In your original code, you might be using a unified login or specific. 
-            // Ensure this endpoint matches your backend route exactly.
-            // If your backend uses /users for everyone, adjust accordingly.
-            
-            const response = await axios.post(`${API_BASE_URL}/doctors/login`, formData); 
-            // ^ Using the endpoint from your uploaded file. Adjust if patients use a different one.
+    try {
+      const response = await axios.post(`${API_BASE_URL}/doctors/login`, {
+        email: formData.email,
+        password: formData.password,
+        role: role
+      });
 
-            toast.success(`Welcome back, ${response.data.user?.name || 'User'}!`);
-            localStorage.setItem('token', response.data.token);
-            // Inject selected role into storage if backend doesn't return it explicitly
-            const userWithRole = { ...response.data.user, role: response.data.user.role || role };
-            localStorage.setItem('user', JSON.stringify(userWithRole));
+      if (response.data.status) {
+        toast.success(`Welcome back, ${response.data.user.name}!`);
+        
+        const userData = { ...response.data.user, role: role };
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('token', response.data.token);
+        
+        setTimeout(() => {
+          if (role === 'doctor') {
+            navigate('/doctor-dashboard');
+          } else {
+            navigate('/dashboard');
+          }
+        }, 500);
+      } else {
+        toast.error(response.data.msg || 'Login failed');
+      }
+    } catch (error) {
+      console.error('Login Error:', error);
+      toast.error(error.response?.data?.msg || 'Unable to connect to server');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-            setTimeout(() => {
-                navigate(userWithRole.role === 'doctor' ? '/doctor-dashboard' : '/patient-dashboard');
-            }, 1000);
-
-        } catch (error) {
-            console.error(error);
-            toast.error(error.response?.data?.message || 'Invalid credentials. Please try again.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-6 lg:p-0">
-            <div className="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden w-full max-w-6xl grid lg:grid-cols-2 min-h-[650px]">
-                
-                {/* Left Side - Visual & Branding */}
-                <div className="relative hidden lg:flex flex-col justify-between p-12 bg-slate-900 text-white overflow-hidden">
-                    {/* Abstract Background Shapes */}
-                    <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-                    <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-                    <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-purple-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
-                    
-                    {/* Content */}
-                    <div className="relative z-10">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-sm font-medium mb-8">
-                            <ShieldCheck size={16} className="text-blue-400" />
-                            <span>Secure & Private Portal</span>
-                        </div>
-                        <h1 className="text-5xl font-bold leading-tight mb-6">
-                            Welcome Back to <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">MediConnect</span>
-                        </h1>
-                        <p className="text-lg text-slate-400 max-w-md">
-                            Access your medical records, connect with specialists, and manage your health journey securely.
-                        </p>
-                    </div>
-
-                    <div className="relative z-10 bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 mt-12">
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400">
-                                <Activity size={24} />
-                            </div>
-                            <div>
-                                <p className="font-semibold text-white">AI-Powered Diagnostics</p>
-                                <p className="text-sm text-slate-400">Get preliminary insights instantly.</p>
-                            </div>
-                        </div>
-                        <div className="w-full bg-white/10 h-1 rounded-full overflow-hidden">
-                            <div className="w-2/3 h-full bg-blue-500 rounded-full"></div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right Side - Login Form */}
-                <div className="flex flex-col justify-center p-8 md:p-12 lg:p-16 relative">
-                     <div className="max-w-md mx-auto w-full">
-                        
-                        <div className="text-center lg:text-left mb-10">
-                            <h2 className="text-3xl font-bold text-slate-900 mb-2">Sign In</h2>
-                            <p className="text-slate-500">Enter your credentials to access your account.</p>
-                        </div>
-
-                        {/* Role Selector Pill */}
-                        <div className="bg-slate-100 p-1 rounded-xl flex mb-8">
-                            <button
-                                onClick={() => setRole('user')}
-                                className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
-                                    role === 'user' 
-                                    ? 'bg-white text-slate-900 shadow-sm' 
-                                    : 'text-slate-500 hover:text-slate-700'
-                                }`}
-                            >
-                                Patient
-                            </button>
-                            <button
-                                onClick={() => setRole('doctor')}
-                                className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
-                                    role === 'doctor' 
-                                    ? 'bg-white text-blue-700 shadow-sm' 
-                                    : 'text-slate-500 hover:text-slate-700'
-                                }`}
-                            >
-                                Doctor
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            <Input
-                                label="Email Address"
-                                name="email"
-                                type="email"
-                                icon={Mail}
-                                placeholder="name@example.com"
-                                value={formData.email}
-                                onChange={handleChange}
-                                required
-                            />
-
-                            <div className="space-y-1">
-                                <Input
-                                    label="Password"
-                                    name="password"
-                                    type="password"
-                                    icon={Lock}
-                                    placeholder="••••••••"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    required
-                                />
-                                <div className="flex justify-end">
-                                    <Link to="/forgot-password" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-                                        Forgot password?
-                                    </Link>
-                                </div>
-                            </div>
-
-                            <Button 
-                                type="submit" 
-                                className="w-full py-4 text-base font-semibold shadow-blue-500/25 hover:shadow-blue-500/40"
-                                loading={isLoading}
-                                rightIcon={!isLoading && <ArrowRight size={20} />}
-                            >
-                                Sign In as {role === 'doctor' ? 'Doctor' : 'Patient'}
-                            </Button>
-                        </form>
-
-                        <div className="mt-8 text-center">
-                            <p className="text-slate-500">
-                                Don't have an account?{' '}
-                                <Link to="/register" className="font-semibold text-slate-900 hover:text-blue-600 transition-colors">
-                                    Create Account
-                                </Link>
-                            </p>
-                        </div>
-                     </div>
-                </div>
-            </div>
+  return (
+    <div className="min-h-screen flex bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30">
+      
+      {/* Left Side - Brand & Visual */}
+      <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden">
+        
+        {/* Gradient Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700">
+          {/* Animated Orbs */}
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full mix-blend-overlay filter blur-3xl animate-blob" />
+            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-200 rounded-full mix-blend-overlay filter blur-3xl animate-blob animation-delay-2000" />
+            <div className="absolute bottom-0 left-1/2 w-96 h-96 bg-indigo-200 rounded-full mix-blend-overlay filter blur-3xl animate-blob animation-delay-1000" />
+          </div>
+          
+          {/* Grid Pattern Overlay */}
+          <div className="absolute inset-0 opacity-10" style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+            backgroundSize: '50px 50px'
+          }}></div>
         </div>
-    );
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
+          
+          {/* Logo & Brand */}
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/20">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center">
+                <Activity size={24} className="text-blue-600" />
+              </div>
+              <span className="text-xl font-bold">MedAI Connect</span>
+            </div>
+          </div>
+
+          {/* Main Content */}
+          <div className="space-y-8">
+            <div className="space-y-4">
+              <h1 className="text-6xl font-bold leading-tight">
+                Welcome<br />Back
+              </h1>
+              <p className="text-xl text-blue-100 max-w-md leading-relaxed">
+                Access your personalized healthcare dashboard and connect with top medical professionals.
+              </p>
+            </div>
+
+            {/* Feature Highlights */}
+            <div className="space-y-4">
+              {[
+                { icon: Shield, text: 'Bank-level security & encryption' },
+                { icon: Users, text: '10,000+ healthcare professionals' },
+                { icon: Heart, text: 'Trusted by millions worldwide' },
+              ].map((item, index) => (
+                <div 
+                  key={index}
+                  className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/10 hover:bg-white/15 transition-all duration-300"
+                >
+                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                    <item.icon size={20} />
+                  </div>
+                  <span className="text-sm font-medium">{item.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Social Proof */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="flex -space-x-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div 
+                    key={i} 
+                    className="w-10 h-10 rounded-full bg-gradient-to-br from-white/30 to-white/10 border-2 border-white/50 backdrop-blur-sm"
+                  />
+                ))}
+              </div>
+              <div className="text-sm">
+                <div className="font-semibold">Trusted by 10,000+ users</div>
+                <div className="flex items-center gap-1 text-yellow-300">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} size={12} className="fill-current" />
+                  ))}
+                  <span className="ml-1 text-white/80">4.9/5</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Side - Login Form */}
+      <div className="w-full lg:w-[55%] flex items-center justify-center p-6 lg:p-12">
+        <div className="w-full max-w-lg">
+          
+          {/* Mobile Logo */}
+          <div className="lg:hidden flex items-center gap-3 mb-8">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center">
+              <Activity size={24} className="text-white" />
+            </div>
+            <span className="text-2xl font-bold text-gray-900">MedAI Connect</span>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-2xl shadow-gray-900/10 p-8 lg:p-10 border border-gray-100">
+            
+            {/* Header */}
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                Sign in to continue
+              </h2>
+              <p className="text-gray-600">
+                Enter your credentials to access your account
+              </p>
+            </div>
+
+            {/* Role Selector */}
+            <div className="mb-8">
+              <label className="text-sm font-semibold text-gray-700 mb-3 block">
+                I am a
+              </label>
+              <div className="grid grid-cols-2 gap-3 p-1.5 bg-gray-100 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setRole('patient')}
+                  className={`relative py-3.5 rounded-xl text-sm font-bold transition-all duration-300 ${
+                    role === 'patient'
+                      ? 'bg-white text-blue-600 shadow-md'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <User size={18} />
+                    <span>Patient</span>
+                  </div>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setRole('doctor')}
+                  className={`relative py-3.5 rounded-xl text-sm font-bold transition-all duration-300 ${
+                    role === 'doctor'
+                      ? 'bg-white text-indigo-600 shadow-md'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <Stethoscope size={18} />
+                    <span>Doctor</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Login Form */}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              
+              <Input
+                label="Email address"
+                name="email"
+                type="email"
+                placeholder={role === 'doctor' ? 'doctor@hospital.com' : 'patient@example.com'}
+                value={formData.email}
+                onChange={handleChange}
+                leftIcon={<Mail size={20} />}
+                required
+                autoComplete="email"
+              />
+              
+              <div>
+                <div className="relative">
+                  <Input
+                    label="Password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    leftIcon={<Lock size={20} />}
+                    required
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-[42px] text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+                
+                <div className="flex items-center justify-between mt-3">
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 transition-all"
+                    />
+                    <span className="text-sm text-gray-600 group-hover:text-gray-900 transition-colors">
+                      Remember me
+                    </span>
+                  </label>
+                  
+                  <Link 
+                    to="/forgot-password" 
+                    className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+              </div>
+
+              <Button 
+                type="submit" 
+                fullWidth
+                size="lg"
+                loading={isLoading}
+                rightIcon={!isLoading && <ArrowRight size={20} />}
+                className="mt-6 !py-4"
+              >
+                {isLoading ? 'Signing in...' : 'Sign in'}
+              </Button>
+            </form>
+
+            {/* Divider */}
+            <div className="relative my-8">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-white text-gray-500 font-medium">
+                  Don't have an account?
+                </span>
+              </div>
+            </div>
+
+            {/* Sign Up Link */}
+            <div className="text-center">
+              <Link 
+                to="/register" 
+                className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold transition-colors group"
+              >
+                <span>Create new account</span>
+                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+          </div>
+          
+          {/* Footer */}
+          <p className="text-center text-xs text-gray-500 mt-8 px-4">
+            Protected by enterprise-grade security. By continuing, you agree to our{' '}
+            <a href="#" className="text-blue-600 hover:underline">Terms</a> and{' '}
+            <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
