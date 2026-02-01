@@ -1,376 +1,275 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, User, Clock, MapPin, Search, PlusCircle, LogOut, FileText, History, Stethoscope, Briefcase, Filter, X, ArrowRight } from 'lucide-react';
-import { toast } from 'react-hot-toast';
-import { API_BASE_URL } from "../../config/constant";
-import BookingModal from '../../components/Appointment/BookingModal';
-import { Button, Input, Card } from '../../components/ui';
+import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import {
+    Activity,
+    Calendar,
+    FileText,
+    TrendingUp,
+    User,
+    Heart,
+    Droplets,
+    Thermometer,
+    Clock,
+    ArrowUpRight,
+    ArrowDownRight,
+    Plus,
+    Search,
+    ChevronRight,
+    ShieldCheck
+} from 'lucide-react';
 
-export default function PatientDashboard() {
-    const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || '{}'));
-    const [appointments, setAppointments] = useState([]);
-    const [doctors, setDoctors] = useState([]);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [filterExp, setFilterExp] = useState("");
-    const [selectedDoctor, setSelectedDoctor] = useState(null);
-    const [documents, setDocuments] = useState([]);
-    const [activeTab, setActiveTab] = useState('find'); // 'find', 'upcoming', 'history', 'documents'
-    const navigate = useNavigate();
+const MetricCard = ({ icon: Icon, label, value, subtext, color, trend, trendValue }) => (
+    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:opacity-10 transition-opacity">
+            <Icon size={80} />
+        </div>
+        <div className="flex justify-between items-start mb-4 relative z-10">
+            <div className={`p-3 rounded-xl ${color} bg-opacity-10 text-opacity-100 group-hover:scale-110 transition-transform`}>
+                <Icon size={24} className={color.replace('bg-', 'text-')} />
+            </div>
+            <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${trend === 'up' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                {trend === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                {trendValue}
+            </div>
+        </div>
+        <div className="relative z-10">
+            <h3 className="text-3xl font-bold text-slate-800 mb-1">{value}</h3>
+            <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
+            <p className="text-xs text-slate-400 mt-2 font-medium">{subtext}</p>
+        </div>
+    </div>
+);
 
-    useEffect(() => {
-        fetchAppointments();
-        fetchDoctors();
-        fetchDocuments();
-    }, []);
-
-    const fetchDocuments = async () => {
-        try {
-            const res = await axios.get(`${API_BASE_URL}/doctors/documents/${user.id}`);
-            setDocuments(res.data);
-        } catch (err) {
-            console.error("Failed to fetch documents", err);
-        }
+const AppointmentItem = ({ doctor, specialty, time, date, status }) => {
+    const statusStyles = {
+        confirmed: "bg-green-100 text-green-700",
+        pending: "bg-amber-100 text-amber-700",
+        cancelled: "bg-red-100 text-red-700"
     };
-
-    const fetchAppointments = async () => {
-        try {
-            const res = await axios.get(`${API_BASE_URL}/doctors/appointments`, {
-                params: { userId: user.id, role: 'user' }
-            });
-            setAppointments(res.data);
-        } catch (err) {
-            console.error("Failed to fetch appointments", err);
-        }
-    };
-
-    const fetchDoctors = async () => {
-        try {
-            const res = await axios.get(`${API_BASE_URL}/doctors/`);
-            setDoctors(res.data);
-        } catch (err) {
-            console.error("Failed to fetch doctors", err);
-        }
-    };
-
-    const handleLogout = () => {
-        localStorage.clear();
-        navigate('/login');
-        toast.success("Logged out successfully");
-    };
-
-    const filteredDoctors = doctors.filter(doc => {
-        const matchesSearch = (doc.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            doc.specialization?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            doc.bio?.toLowerCase().includes(searchTerm.toLowerCase()));
-
-        const matchesExp = filterExp ? (doc.experience >= parseInt(filterExp)) : true;
-
-        return matchesSearch && matchesExp;
-    });
-
-    const upcomingAppointments = appointments.filter(apt => ['Pending', 'Confirmed'].includes(apt.status));
-    const historyAppointments = appointments.filter(apt => ['Completed', 'Cancelled'].includes(apt.status));
-
-    const tabs = [
-        { id: 'find', label: 'Find Doctor', icon: <Search size={18} /> },
-        { id: 'upcoming', label: 'Upcoming', icon: <Calendar size={18} />, count: upcomingAppointments.length },
-        { id: 'history', label: 'History', icon: <History size={18} /> },
-        { id: 'documents', label: 'My Documents', icon: <FileText size={18} /> },
-    ];
 
     return (
-        <div className="min-h-screen bg-gray-50/50">
-            {/* Header */}
-            <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-lg">
-                            {user.name?.[0]}
+        <div className="flex items-center gap-4 p-4 hover:bg-slate-50/80 rounded-2xl transition-all cursor-pointer border border-transparent hover:border-slate-100 group">
+            <div className="relative">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow-lg shadow-blue-200 group-hover:rotate-3 transition-transform">
+                    {doctor.split(' ').pop().charAt(0)}
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center border border-slate-100 shadow-sm">
+                    <ShieldCheck size={12} className="text-blue-600" />
+                </div>
+            </div>
+            <div className="flex-1">
+                <h4 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{doctor}</h4>
+                <p className="text-xs font-medium text-slate-500">{specialty}</p>
+            </div>
+            <div className="text-right flex flex-col items-end gap-1">
+                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${statusStyles[status]}`}>
+                    {status}
+                </span>
+                <p className="text-sm font-bold text-slate-700">{time}</p>
+                <p className="text-xs font-medium text-slate-400">{date}</p>
+            </div>
+        </div>
+    );
+};
+
+export default function PatientDashboard() {
+    const navigate = useNavigate();
+    const [user, setUser] = useState(null);
+    const [searchQuery, setSearchQuery] = useState("");
+
+    useEffect(() => {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) setUser(JSON.parse(storedUser));
+    }, []);
+
+    return (
+        <div className="min-h-screen bg-[#F8FAFC] pt-24 pb-12 px-4 md:px-8">
+            <div className="max-w-7xl mx-auto">
+
+                {/* Top Header / Action Bar */}
+                <div className="mb-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 animate-fade-in">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="h-1 w-8 bg-blue-600 rounded-full"></span>
+                            <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">Patient Portal</span>
                         </div>
-                        <div>
-                            <h1 className="text-lg font-bold text-gray-900">Hello, {user.name}</h1>
-                            <p className="text-xs text-gray-500">Patient Dashboard</p>
-                        </div>
+                        <h1 className="text-4xl font-display font-bold text-slate-900 tracking-tight">
+                            Welcome, <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">{user?.name || 'Patient'}</span>
+                        </h1>
+                        <p className="text-slate-500 mt-2 font-medium">Your personal health dashboard and clinical records.</p>
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                        onClick={handleLogout}
-                        leftIcon={<LogOut size={18} />}
-                    >
-                        Logout
-                    </Button>
-                </div>
-            </header>
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
-                {/* Tabs */}
-                <div className="flex space-x-1 bg-white p-1 rounded-xl shadow-sm border border-gray-100 mb-8 w-full md:w-fit">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`
-                                flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
-                                ${activeTab === tab.id
-                                    ? 'bg-blue-600 text-white shadow-md'
-                                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-                                }
-                            `}
-                        >
-                            {tab.icon}
-                            {tab.label}
-                            {tab.count > 0 && (
-                                <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-600'
-                                    }`}>
-                                    {tab.count}
-                                </span>
-                            )}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Content */}
-                {activeTab === 'find' && (
-                    <div className="space-y-6 animate-slide-up">
-                        {/* Search Bar */}
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-center">
-                            <div className="relative flex-1 w-full">
-                                <Input
-                                    placeholder="Search by name, specialization, or bio..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    leftIcon={<Search size={20} />}
-                                    className="border-gray-200 bg-gray-50 focus:bg-white transition-all"
-                                />
-                            </div>
-                            <div className="w-full md:w-64">
-                                <div className="relative">
-                                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                    <select
-                                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none appearance-none cursor-pointer"
-                                        value={filterExp}
-                                        onChange={(e) => setFilterExp(e.target.value)}
-                                    >
-                                        <option value="">All Experience Levels</option>
-                                        <option value="5">5+ Years</option>
-                                        <option value="10">10+ Years</option>
-                                        <option value="15">15+ Years</option>
-                                    </select>
-                                </div>
-                            </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="relative group">
+                            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                            <input
+                                type="text"
+                                placeholder="Search records..."
+                                className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all w-full md:w-64 shadow-sm"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
                         </div>
+                        <Button variant="primary" className="shadow-blue-200 shadow-xl" onClick={() => navigate('/doctor')}>
+                            <Plus size={18} className="mr-2" /> Book Now
+                        </Button>
+                    </div>
+                </div>
 
-                        {/* Results */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {filteredDoctors.map(doc => (
-                                <Card key={doc._id} hoverable className="h-full flex flex-col">
-                                    <div className="p-6 flex flex-col h-full">
-                                        <div className="flex items-start justify-between mb-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 rounded-xl flex items-center justify-center font-bold text-lg">
-                                                    {doc.name[0]}
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-lg font-bold text-gray-900 leading-tight">{doc.name}</h3>
-                                                    <span className="inline-block mt-1 bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full font-medium border border-blue-100">
-                                                        {doc.specialization}
-                                                    </span>
-                                                </div>
-                                            </div>
+                {/* Vital Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10 animate-slide-up">
+                    <MetricCard
+                        icon={Heart}
+                        label="Pulse Rate"
+                        value="72"
+                        subtext="BPM (Resting)"
+                        color="bg-rose-500"
+                        trend="down"
+                        trendValue="3%"
+                    />
+                    <MetricCard
+                        icon={Droplets}
+                        label="Blood Sugar"
+                        value="105"
+                        subtext="mg/dL (Fasting)"
+                        color="bg-blue-500"
+                        trend="up"
+                        trendValue="1.2%"
+                    />
+                    <MetricCard
+                        icon={Activity}
+                        label="Daily Steps"
+                        value="8,420"
+                        subtext="Target: 10k"
+                        color="bg-indigo-600"
+                        trend="up"
+                        trendValue="15%"
+                    />
+                    <MetricCard
+                        icon={Thermometer}
+                        label="Body Temp"
+                        value="98.4°"
+                        subtext="Fahrenheit"
+                        color="bg-teal-500"
+                        trend="down"
+                        trendValue="0.2%"
+                    />
+                </div>
+
+                {/* Main Content Sections */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                    {/* Appointments Column */}
+                    <div className="lg:col-span-2 space-y-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+                        <Card
+                            header={
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                                            <Calendar size={20} />
                                         </div>
-
-                                        <div className="space-y-3 flex-1">
-                                            <p className="text-gray-600 text-sm line-clamp-2">{doc.bio || "Experienced specialist dedicated to patient care."}</p>
-
-                                            <div className="grid grid-cols-2 gap-2 text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
-                                                <div className="flex items-center gap-1.5">
-                                                    <Briefcase size={14} className="text-blue-500" />
-                                                    <span>{doc.experience || 1}+ Yrs Exp</span>
-                                                </div>
-                                                <div className="flex items-center gap-1.5">
-                                                    <MapPin size={14} className="text-red-500" />
-                                                    <span className="truncate">{doc.address || "Main Clinic"}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="pt-6 mt-2">
-                                            <Button
-                                                className="w-full"
-                                                onClick={() => setSelectedDoctor(doc)}
-                                                leftIcon={<PlusCircle size={18} />}
-                                            >
-                                                Book Appointment
-                                            </Button>
-                                        </div>
+                                        <h3 className="text-lg font-bold text-slate-800">Schedule</h3>
                                     </div>
-                                </Card>
-                            ))}
-                            {filteredDoctors.length === 0 && (
-                                <div className="col-span-full py-12 text-center text-gray-500 bg-white rounded-2xl border border-dashed border-gray-300">
-                                    <Search size={48} className="mx-auto text-gray-300 mb-3" />
-                                    <p>No doctors found matching your criteria.</p>
+                                    <button className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 group">
+                                        View Full Calendar <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                                    </button>
                                 </div>
-                            )}
-                        </div>
-                    </div>
-                )}
+                            }
+                            className="border-none shadow-xl shadow-slate-200/50"
+                        >
+                            <div className="grid grid-cols-1 gap-1">
+                                <AppointmentItem doctor="Dr. Sarah Wilson" specialty="Cardiology Specialist" time="10:00 AM" date="Today, Oct 22" status="confirmed" />
+                                <AppointmentItem doctor="Dr. Emily Chen" specialty="Senior Dermatologist" time="02:30 PM" date="Tomorrow, Oct 23" status="pending" />
+                                <AppointmentItem doctor="Dr. James Carter" specialty="General Practitioner" time="09:15 AM" date="Wed, Oct 24" status="confirmed" />
+                            </div>
+                        </Card>
 
-                {activeTab === 'upcoming' && (
-                    <div className="space-y-4 animate-slide-up">
-                        {upcomingAppointments.length === 0 ? (
-                            <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100">
-                                <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Calendar size={32} />
+                        {/* Health Analytics Placeholder */}
+                        <Card header={<h3 className="text-lg font-bold text-slate-800">Health Trends (Weekly)</h3>}>
+                            <div className="h-48 flex items-end gap-3 px-2">
+                                {[40, 70, 45, 90, 65, 80, 55].map((h, i) => (
+                                    <div key={i} className="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
+                                        <div
+                                            className="w-full bg-slate-100 rounded-t-lg relative overflow-hidden transition-all duration-500 group-hover:bg-blue-50"
+                                            style={{ height: `${h}%` }}
+                                        >
+                                            <div className="absolute bottom-0 left-0 right-0 bg-blue-600 opacity-0 group-hover:opacity-100 transition-all duration-500" style={{ height: '30%' }}></div>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </Card>
+                    </div>
+
+                    {/* Sidebar Column */}
+                    <div className="space-y-8 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+
+                        {/* AI Assistant Promo Card */}
+                        <div className="bg-slate-900 rounded-[2rem] p-8 text-white shadow-2xl relative overflow-hidden group">
+                            <div className="absolute -top-12 -right-12 w-48 h-48 bg-blue-600/20 rounded-full blur-3xl transition-transform duration-1000 group-hover:scale-150"></div>
+                            <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-indigo-600/20 rounded-full blur-3xl transition-transform duration-1000 group-hover:scale-150"></div>
+
+                            <div className="relative z-10">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-bold uppercase tracking-widest mb-6">
+                                    <TrendingUp size={12} className="text-blue-400" /> AI Powered
                                 </div>
-                                <h3 className="text-lg font-bold text-gray-900">No Upcoming Appointments</h3>
-                                <p className="text-gray-500 mt-1">Book an appointment to see it here.</p>
+                                <h3 className="text-2xl font-bold mb-3 leading-tight">Instant AI Diagnosis</h3>
+                                <p className="text-slate-400 text-sm mb-8 leading-relaxed">Feeling unwell? Our advanced AI engine can analyze your symptoms in seconds.</p>
                                 <Button
-                                    variant="outline"
-                                    className="mt-6"
-                                    onClick={() => setActiveTab('find')}
+                                    onClick={() => navigate('/chatbot')}
+                                    className="w-full bg-blue-600 text-white hover:bg-blue-700 border-none h-12 rounded-2xl font-bold shadow-lg shadow-blue-600/20"
                                 >
-                                    Find a Doctor
+                                    Start Chat Now
                                 </Button>
                             </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {upcomingAppointments.map(apt => (
-                                    <Card key={apt._id} className="border-l-4 border-l-blue-500">
-                                        <div className="p-5">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
-                                                        <User size={20} />
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-bold text-gray-900">{apt.doctorId?.name || "Doctor"}</h3>
-                                                        <p className="text-xs text-gray-500">{apt.doctorId?.specialization || "Specialist"}</p>
-                                                    </div>
-                                                </div>
-                                                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${apt.status === 'Confirmed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                                                    }`}>
-                                                    {apt.status}
-                                                </span>
-                                            </div>
+                        </div>
 
-                                            <div className="flex items-center gap-4 text-sm text-gray-600 mb-4 bg-gray-50 p-3 rounded-lg">
-                                                <div className="flex items-center gap-1.5">
-                                                    <Calendar size={16} className="text-blue-500" />
-                                                    <span className="font-medium">{new Date(apt.date).toLocaleDateString()}</span>
-                                                </div>
-                                                <div className="border-l border-gray-300 h-4" />
-                                                <div className="flex items-center gap-1.5">
-                                                    <Clock size={16} className="text-orange-500" />
-                                                    <span className="font-medium">{apt.time}</span>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Symptoms Identified</p>
-                                                <p className="text-sm text-gray-800 line-clamp-1">{apt.symptoms}</p>
-                                            </div>
+                        {/* Quick Files Section */}
+                        <Card
+                            header={<h3 className="font-bold text-slate-800">Recent Documents</h3>}
+                            className="border-none shadow-lg shadow-slate-200/50"
+                        >
+                            <div className="space-y-4">
+                                {[
+                                    { name: "Lab_Results_Oct.pdf", type: "Blood Test", date: "2 days ago" },
+                                    { name: "Prescription_Cardio.pdf", type: "Prescription", date: "5 days ago" }
+                                ].map((file, i) => (
+                                    <div key={i} className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-2xl hover:border-blue-200 transition-colors group">
+                                        <div className="p-2.5 bg-slate-50 text-slate-400 group-hover:text-blue-600 group-hover:bg-blue-50 rounded-xl transition-colors">
+                                            <FileText size={20} />
                                         </div>
-
-                                        <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-end">
-                                            <Button variant="ghost" size="sm" className="text-blue-600 hover:bg-blue-50">
-                                                View Details
-                                            </Button>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-slate-800 truncate">{file.name}</p>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{file.type} • {file.date}</p>
                                         </div>
-                                    </Card>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === 'history' && (
-                    <div className="space-y-4 animate-slide-up">
-                        {historyAppointments.length === 0 ? (
-                            <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100">
-                                <History className="mx-auto text-gray-300 mb-4" size={48} />
-                                <p className="text-gray-500">No appointment history found</p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {historyAppointments.map(apt => (
-                                    <div key={apt._id} className="bg-white p-5 rounded-xl border border-gray-100 flex items-center justify-between opacity-75 hover:opacity-100 transition-opacity">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center">
-                                                <History size={20} />
-                                            </div>
-                                            <div>
-                                                <h3 className="font-bold text-gray-900">{apt.doctorId?.name}</h3>
-                                                <div className="text-gray-500 text-sm flex items-center gap-2 mt-0.5">
-                                                    <span>{new Date(apt.date).toLocaleDateString()}</span>
-                                                    <span>•</span>
-                                                    <span>{apt.time}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${apt.status === 'Completed' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
-                                            }`}>
-                                            {apt.status}
-                                        </span>
+                                        <button className="p-2 text-slate-400 hover:text-blue-600">
+                                            <ArrowUpRight size={18} />
+                                        </button>
                                     </div>
                                 ))}
+                                <button className="w-full py-2 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors text-center">
+                                    View all documents
+                                </button>
                             </div>
-                        )}
-                    </div>
-                )}
+                        </Card>
 
-                {activeTab === 'documents' && (
-                    <div className="space-y-4 animate-slide-up">
-                        {documents.length === 0 ? (
-                            <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100">
-                                <FileText className="mx-auto text-gray-300 mb-4" size={48} />
-                                <p className="text-gray-500">No documents uploaded</p>
+                        {/* Help/Support Section */}
+                        <div className="bg-blue-50 p-6 rounded-3xl flex items-center gap-4">
+                            <div className="p-3 bg-white rounded-2xl text-blue-600 shadow-sm">
+                                <Clock size={24} />
                             </div>
-                        ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                {documents.map(doc => (
-                                    <div key={doc._id} className="bg-white p-4 rounded-xl border border-gray-100 hover:shadow-md transition group relative">
-                                        <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-3">
-                                            <FileText size={24} />
-                                        </div>
-                                        <h3 className="font-bold text-gray-800 text-sm truncate" title={doc.originalName}>{doc.originalName}</h3>
-                                        <p className="text-xs text-gray-400 mt-1">{new Date(doc.createdAt).toLocaleDateString()}</p>
-                                        <div className="mt-4">
-                                            <a
-                                                href={`${API_BASE_URL}/${doc.path.replace(/\\/g, '/')}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                                            >
-                                                View Document <ArrowRight size={12} />
-                                            </a>
-                                        </div>
-                                    </div>
-                                ))}
+                            <div>
+                                <h4 className="text-sm font-bold text-blue-900">24/7 Support</h4>
+                                <p className="text-xs font-medium text-blue-700/70">Connect with a triage nurse instantly.</p>
                             </div>
-                        )}
-                    </div>
-                )}
-            </main >
+                        </div>
 
-            {/* Booking Modal */}
-            {
-                selectedDoctor && (
-                    <BookingModal
-                        doctor={selectedDoctor}
-                        patient={user}
-                        onClose={() => setSelectedDoctor(null)}
-                        onSuccess={() => {
-                            fetchAppointments();
-                            setSelectedDoctor(null);
-                            setActiveTab('upcoming');
-                        }}
-                    />
-                )
-            }
-        </div >
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }

@@ -1,23 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
-import { API_BASE_URL } from "../config/constant";
-import { Mic, Send, Paperclip, X, FileText, Loader2, StopCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Send, Mic, StopCircle, Bot, User, Sparkles, FileText, Activity } from 'lucide-react';
+import { API_BASE_URL } from '../config/constant';
 
-export const Chatbot = () => {
+export function Chatbot() {
   const [messages, setMessages] = useState([
-    { role: 'system', content: 'Hello! I am your AI medical assistant. How can I help you today?' }
+    { 
+      type: 'bot', 
+      text: "Hello! I'm your AI Medical Assistant. I can help analyze your symptoms, summarize medical reports, or answer health questions. How can I help you today?" 
+    }
   ]);
-  const [userInput, setUserInput] = useState('');
-  const [recording, setRecording] = useState(false);
-  const [blob, setBlob] = useState(null);
-  const [file, setFile] = useState(null);
-  const [filePath, setFilePath] = useState(null);
+  const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef(null);
-  const fileInputRef = useRef(null);
-
-  const API_URL = `${API_BASE_URL}/doctors/ai`;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -27,234 +22,161 @@ export const Chatbot = () => {
     scrollToBottom();
   }, [messages]);
 
-  const sendMessage = async () => {
-    if ((!userInput.trim() && !blob && !file) || isLoading) return;
+  const handleSend = async () => {
+    if (!input.trim()) return;
 
-    const newMessage = {
-      role: 'user',
-      content: userInput,
-      file: file ? file.name : null,
-      audio: blob ? 'Voice Message' : null
-    };
-
-    setMessages(prev => [...prev, newMessage]);
-    setUserInput('');
+    const userMessage = { type: 'user', text: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
     setIsLoading(true);
 
     try {
-      let responseData;
-      let newFilePath = filePath;
-
-      if (blob) {
-        const formData = new FormData();
-        formData.append('audio', blob);
-        const response = await axios.post(`${API_URL}/voice-message`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        responseData = response.data.response || response.data.message;
-        setBlob(null);
-      } else if (file) {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('user_input', userInput);
-
-        const response = await axios.post(`${API_URL}/upload-pdf`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-
-        responseData = response.data.response;
-        if (response.data.file_path) {
-          newFilePath = response.data.file_path;
-          setFilePath(newFilePath);
-        }
-        setFile(null);
-      } else {
-        const payload = { message: userInput };
-        if (filePath) payload.file_path = filePath;
-
-        const response = await axios.post(`${API_URL}/query`, payload);
-        responseData = response.data.response;
-      }
-
-      setMessages(prev => [...prev, { role: 'system', content: responseData }]);
+      const response = await fetch(`${API_BASE_URL}/doctors/ai/patient_querry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage.text })
+      });
+      
+      const data = await response.json();
+      const botMessage = { type: 'bot', text: data.response || "I'm sorry, I couldn't process that request." };
+      setMessages(prev => [...prev, botMessage]);
     } catch (error) {
-      console.error(error);
-      setMessages(prev => [...prev, { role: 'system', content: "I'm sorry, I encountered an error due to server issues." }]);
+      setMessages(prev => [...prev, { type: 'bot', text: "Sorry, I'm having trouble connecting to the server right now." }]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleFileChange = (e) => {
-    if (e.target.files[0]) {
-      setFile(e.target.files[0]);
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
   };
 
-  const startRecording = async () => {
-    setRecording(!recording);
-    if (!recording) return;
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const chunks = [];
-      recorder.ondataavailable = (e) => chunks.push(e.data);
-      recorder.onstop = () => {
-        setRecording(false);
-        const audioBlob = new Blob(chunks, { type: 'audio/webm' });
-        setBlob(audioBlob);
-      };
-      recorder.start();
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
-      setRecording(false);
-      alert("Microphone access denied or not available.");
-    }
-  };
+  const suggestions = [
+    { icon: Activity, text: "Check symptoms for fever" },
+    { icon: FileText, text: "Interpret my blood test" },
+    { icon: Sparkles, text: "Healthy diet tips" },
+  ];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-100px)] max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 mt-4">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 shrink-0">
-        <h2 className="text-white text-lg font-semibold flex items-center gap-2">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          AI Medical Assistant
-        </h2>
-        <p className="text-blue-100 text-sm mt-1">Ask me about your health or upload medical reports.</p>
-      </div>
-
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-        {messages.map((msg, index) => (
-          <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] rounded-2xl p-4 shadow-sm ${msg.role === 'user'
-              ? 'bg-blue-600 text-white rounded-br-none'
-              : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
-              }`}>
-
-              {/* Attachments */}
-              {msg.file && (
-                <div className="flex items-center gap-2 mb-2 bg-white/10 p-2 rounded text-sm border border-white/20">
-                  <FileText size={16} />
-                  <span>{msg.file}</span>
-                </div>
-              )}
-              {msg.audio && (
-                <div className="flex items-center gap-2 mb-2 bg-white/10 p-2 rounded text-sm border border-white/20">
-                  <Mic size={16} />
-                  <span>Voice Message</span>
-                </div>
-              )}
-
-              <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+    <div className="min-h-screen bg-slate-50 pt-20 pb-10 flex flex-col">
+      <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col px-4">
+        
+        {/* Header */}
+        <div className="text-center mb-8 animate-fade-in">
+          <div className="inline-flex items-center justify-center p-3 bg-white rounded-2xl shadow-sm mb-4">
+            <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 p-2 rounded-xl text-white mr-3">
+              <Bot size={24} />
+            </div>
+            <div className="text-left">
+              <h1 className="text-lg font-bold text-slate-800">AI Health Assistant</h1>
+              <p className="text-xs text-slate-500">Powered by MedAI Models</p>
             </div>
           </div>
-        ))}
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-white p-4 rounded-2xl rounded-bl-none shadow-sm border border-gray-200 flex items-center gap-2 text-gray-500">
-              <Loader2 size={18} className="animate-spin" />
-              <span>Thinking...</span>
-            </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+        </div>
 
-      {/* Input Area */}
-      <div className="p-4 bg-white border-t border-gray-100 shrink-0">
-        {/* Preview Area */}
-        <AnimatePresence>
-          {(file || blob) && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="flex gap-2 mb-3"
-            >
-              {file && (
-                <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full text-sm text-gray-700">
-                  <FileText size={14} />
-                  <span className="max-w-[150px] truncate">{file.name}</span>
-                  <button onClick={() => setFile(null)} className="hover:text-red-500"><X size={14} /></button>
-                </div>
-              )}
-              {blob && (
-                <div className="flex items-center gap-2 bg-red-50 px-3 py-1.5 rounded-full text-sm text-red-700 border border-red-100">
-                  <Mic size={14} />
-                  <span>Recording Ready</span>
-                  <button onClick={() => setBlob(null)} className="hover:text-red-500"><X size={14} /></button>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="flex items-end gap-2 relative">
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            onChange={handleFileChange}
-            accept="application/pdf"
-          />
-
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-            title="Upload PDF"
-          >
-            <Paperclip size={22} />
-          </button>
-
-          <div className="flex-1 relative">
-            <textarea
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              placeholder="Type a message..."
-              className="w-full bg-gray-100 border-0 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition-all text-gray-700 resize-none max-h-32"
-              rows="1"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  sendMessage();
-                }
-              }}
-            />
-          </div>
-
-          <AnimatePresence mode="wait">
-            {!userInput && !file && !blob ? (
-              <motion.button
-                key="record"
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0 }}
-                onClick={startRecording}
-                className={`p-3 rounded-full transition-all ${recording
-                  ? 'bg-red-50 text-red-600 ring-2 ring-red-200'
-                  : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
-                  }`}
+        {/* Chat Area */}
+        <div className="flex-1 glass rounded-3xl shadow-xl flex flex-col overflow-hidden h-[600px]">
+          
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+            {messages.map((msg, index) => (
+              <div 
+                key={index} 
+                className={`flex gap-4 ${msg.type === 'user' ? 'justify-end' : 'justify-start'} animate-slide-up`}
               >
-                {recording ? <StopCircle size={24} className="animate-pulse" /> : <Mic size={22} />}
-              </motion.button>
-            ) : (
-              <motion.button
-                key="send"
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0 }}
-                onClick={sendMessage}
-                disabled={isLoading}
-                className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                {msg.type === 'bot' && (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white shrink-0 shadow-lg shadow-blue-200">
+                    <Bot size={16} />
+                  </div>
+                )}
+                
+                <div 
+                  className={`max-w-[80%] p-4 rounded-2xl leading-relaxed text-sm ${
+                    msg.type === 'user' 
+                      ? 'bg-slate-800 text-white rounded-br-none shadow-md' 
+                      : 'bg-white border border-slate-100 text-slate-700 rounded-bl-none shadow-sm'
+                  }`}
+                >
+                  {msg.text}
+                </div>
+
+                {msg.type === 'user' && (
+                  <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 shrink-0">
+                    <User size={16} />
+                  </div>
+                )}
+              </div>
+            ))}
+            
+            {isLoading && (
+              <div className="flex gap-4 justify-start animate-fade-in">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white shrink-0">
+                  <Bot size={16} />
+                </div>
+                <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-1">
+                  <div className="w-2 h-2 bg-slate-400 rounded-full typing-dot"></div>
+                  <div className="w-2 h-2 bg-slate-400 rounded-full typing-dot"></div>
+                  <div className="w-2 h-2 bg-slate-400 rounded-full typing-dot"></div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Suggestions (only show if few messages) */}
+          {messages.length < 3 && (
+             <div className="px-6 pb-2 flex gap-2 overflow-x-auto no-scrollbar">
+               {suggestions.map((s, i) => (
+                 <button 
+                   key={i}
+                   onClick={() => setInput(s.text)}
+                   className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-medium text-slate-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors whitespace-nowrap"
+                 >
+                   <s.icon size={12} />
+                   {s.text}
+                 </button>
+               ))}
+             </div>
+          )}
+
+          {/* Input Area */}
+          <div className="p-4 bg-white/50 border-t border-slate-100 backdrop-blur-sm">
+            <div className="relative flex items-center gap-2">
+              <button 
+                className={`p-3 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                onClick={() => setIsListening(!isListening)}
+                title="Voice Input"
+              >
+                {isListening ? <StopCircle size={20} /> : <Mic size={20} />}
+              </button>
+              
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="Type your health concern..."
+                className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+              />
+              
+              <button 
+                onClick={handleSend}
+                disabled={!input.trim() || isLoading}
+                className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30 transition-all transform hover:scale-105 active:scale-95"
               >
                 <Send size={20} />
-              </motion.button>
-            )}
-          </AnimatePresence>
+              </button>
+            </div>
+            <p className="text-center text-[10px] text-slate-400 mt-2">
+              AI can make mistakes. Please consult a doctor for serious medical advice.
+            </p>
+          </div>
         </div>
+
       </div>
     </div>
   );
-};
+}
